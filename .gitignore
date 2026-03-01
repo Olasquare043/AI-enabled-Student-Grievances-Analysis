@@ -1,0 +1,28 @@
+# Python
+backend/.venv/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+__pycache__/
+*.py[cod]
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+
+# Environment files
+backend/.env
+frontend/.env.local
+frontend/.env
+
+# Tooling
+.idea/
+.vscode/
+
+# Local artifacts
+backend/backups/
+frontend/.artifacts/
+
+# OS files
+Thumbs.db
+.DS_Store

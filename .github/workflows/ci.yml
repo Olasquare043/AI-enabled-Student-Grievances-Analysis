@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql+psycopg://root:olayiwola@localhost:5432/grievance
+      TEST_DATABASE_URL: postgresql+psycopg://root:olayiwola@localhost:5432/grievance_test
+      JWT_SECRET: ci-jwt-secret
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+      LLM_PROVIDER: none
+      RATE_LIMIT_ENABLED: "false"
+      MONITORING_ENABLED: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PostgreSQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-contrib
+          sudo systemctl start postgresql
+
+      - name: Prepare CI databases
+        run: |
+          sudo -u postgres psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'root') THEN
+              CREATE ROLE root LOGIN PASSWORD 'olayiwola' CREATEDB;
+            ELSE
+              ALTER ROLE root WITH LOGIN PASSWORD 'olayiwola' CREATEDB;
+            END IF;
+          END $$;
+          SQL
+
+          sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='grievance'" | grep -q 1 || sudo -u postgres createdb -O root grievance
+          sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='grievance_test'" | grep -q 1 || sudo -u postgres createdb -O root grievance_test
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run migrations
+        working-directory: backend
+        run: |
+          python -m alembic -c alembic.ini upgrade head
+
+      - name: Run backend tests
+        working-directory: backend
+        run: |
+          python -m pytest
+
+  frontend:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint and typecheck
+        working-directory: frontend
+        run: |
+          npm run lint
+          npm run typecheck
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
