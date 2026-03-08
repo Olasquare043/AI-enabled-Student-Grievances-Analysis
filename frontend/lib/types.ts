@@ -245,6 +245,18 @@ export type SLAEvaluationResponse = {
   new_escalations: number;
 };
 
+export type GrievanceCSVImportError = {
+  row_number: number;
+  message: string;
+};
+
+export type GrievanceCSVImportResponse = {
+  total_rows: number;
+  imported_count: number;
+  failed_count: number;
+  errors: GrievanceCSVImportError[];
+};
+
 export type VolumeTrendPoint = {
   date: string;
   total: number;
@@ -319,4 +331,10 @@ export type AnalyticsTopicClustersResponse = {
   generated_at: string;
   period_days: number;
   clusters: TopicClusterInsight[];
+};
+
+export type NLPProviderStatus = {
+  provider: string;
+  llm_enabled: boolean;
+  model?: string | null;
 };

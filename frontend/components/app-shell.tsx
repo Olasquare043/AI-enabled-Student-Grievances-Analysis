@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   CircleUserRound,
+  FileUp,
+  Home,
   LayoutDashboard,
   LoaderCircle,
   LogOut,
@@ -15,6 +18,9 @@ import {
   X,
 } from "lucide-react";
 
+import { listGrievances } from "@/lib/grievance-api";
+import { getNlpProviderStatus } from "@/lib/nlp-api";
+import { listOperationsQueue, listSlaBreaches } from "@/lib/operations-api";
 import type { UserProfileUpdateRequest, UserRead } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,13 +55,32 @@ function buildProfileForm(user: UserRead): ProfileFormState {
   };
 }
 
+type DashboardStats = {
+  myTotalCount: number;
+  myOpenCount: number;
+  queueCount: number;
+  activeBreachCount: number;
+  providerLabel: string;
+};
+
+function navItemClass(isActive: boolean) {
+  if (isActive) {
+    return "flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-tint)] px-3 py-2 text-sm font-medium text-[var(--primary)]";
+  }
+  return "flex items-center gap-2 rounded-md px-3 py-2 text-sm text-[var(--muted-foreground)] transition hover:bg-[var(--surface-tint)]";
+}
+
 export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellProps) {
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileForm, setProfileForm] = useState<ProfileFormState>(
     buildProfileForm(currentUser),
   );
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   useEffect(() => {
     setProfileForm(buildProfileForm(currentUser));
@@ -73,6 +98,94 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
       .trim();
     return combined || "Not set";
   }, [currentUser.first_name, currentUser.last_name]);
+
+  const hasOperationalRole = useMemo(() => {
+    const roles = new Set(currentUser.roles.map((role) => role.name));
+    return roles.has("staff") || roles.has("admin");
+  }, [currentUser.roles]);
+
+  const isAdmin = useMemo(() => {
+    const roles = new Set(currentUser.roles.map((role) => role.name));
+    return roles.has("admin");
+  }, [currentUser.roles]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadStats = async () => {
+      setIsLoadingStats(true);
+      setStatsError(null);
+      try {
+        const myCasesPromise = listGrievances({ mine: true });
+        const queuePromise = hasOperationalRole
+          ? listOperationsQueue()
+          : Promise.resolve([]);
+        const breachesPromise = hasOperationalRole
+          ? listSlaBreaches()
+          : Promise.resolve([]);
+        const providerPromise = getNlpProviderStatus();
+
+        const [myCases, queue, breaches, provider] = await Promise.all([
+          myCasesPromise,
+          queuePromise,
+          breachesPromise,
+          providerPromise,
+        ]);
+
+        const myOpenCount = myCases.filter(
+          (item) => item.status === "open" || item.status === "in_progress",
+        ).length;
+
+        const providerLabel = provider.llm_enabled
+          ? `${provider.provider.toUpperCase()} (${provider.model ?? "default model"})`
+          : "NoOp baseline (LLM disabled)";
+
+        if (!isMounted) {
+          return;
+        }
+
+        setStats({
+          myTotalCount: myCases.length,
+          myOpenCount,
+          queueCount: queue.length,
+          activeBreachCount: breaches.length,
+          providerLabel,
+        });
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        setStatsError(
+          error instanceof Error ? error.message : "Unable to load dashboard metrics",
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoadingStats(false);
+        }
+      }
+    };
+
+    void loadStats();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser.id, hasOperationalRole]);
+
+  const updateProfileField = <T extends keyof ProfileFormState>(
+    key: T,
+    value: ProfileFormState[T],
+  ) => {
+    setProfileForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+    if (saveState !== "idle") {
+      setSaveState("idle");
+    }
+    if (saveError) {
+      setSaveError(null);
+    }
+  };
 
   const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -118,33 +231,53 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
         </div>
         <nav className="mt-6 space-y-2">
           <Link
+            href="/"
+            className={navItemClass(pathname === "/")}
+          >
+            <Home className="size-4" />
+            Home
+          </Link>
+          <Link
             href="/app"
-            className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-tint)] px-3 py-2 text-sm font-medium text-[var(--primary)]"
+            className={navItemClass(pathname === "/app")}
           >
             <LayoutDashboard className="size-4" />
             Dashboard
           </Link>
           <Link
             href="/grievances"
-            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-[var(--muted-foreground)] transition hover:bg-[var(--surface-tint)]"
+            className={navItemClass(pathname.startsWith("/grievances"))}
           >
             <MessageSquareWarning className="size-4" />
             Grievances
           </Link>
-          <Link
-            href="/operations"
-            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-[var(--muted-foreground)] transition hover:bg-[var(--surface-tint)]"
-          >
-            <Route className="size-4" />
-            Operations
-          </Link>
-          <Link
-            href="/analytics"
-            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-[var(--muted-foreground)] transition hover:bg-[var(--surface-tint)]"
-          >
-            <BarChart3 className="size-4" />
-            Analytics
-          </Link>
+          {hasOperationalRole ? (
+            <Link
+              href="/operations"
+              className={navItemClass(pathname.startsWith("/operations"))}
+            >
+              <Route className="size-4" />
+              Operations
+            </Link>
+          ) : null}
+          {hasOperationalRole ? (
+            <Link
+              href="/analytics"
+              className={navItemClass(pathname.startsWith("/analytics"))}
+            >
+              <BarChart3 className="size-4" />
+              Analytics
+            </Link>
+          ) : null}
+          {isAdmin ? (
+            <Link
+              href="/imports"
+              className={navItemClass(pathname.startsWith("/imports"))}
+            >
+              <FileUp className="size-4" />
+              CSV Import
+            </Link>
+          ) : null}
         </nav>
       </aside>
 
@@ -210,21 +343,19 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
           <Card className="surface-card rounded-2xl">
             <CardHeader>
               <CardTitle className="text-lg">Complete your profile</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-4" onSubmit={handleProfileSubmit}>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={handleProfileSubmit}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
                     <Label htmlFor="first-name">First name</Label>
                     <Input
                       id="first-name"
                       value={profileForm.firstName}
                       onChange={(event) =>
-                        setProfileForm((prev) => ({
-                          ...prev,
-                          firstName: event.target.value,
-                        }))
+                        updateProfileField("firstName", event.target.value)
                       }
+                      maxLength={100}
                     />
                   </div>
                   <div className="space-y-2">
@@ -233,11 +364,9 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
                       id="last-name"
                       value={profileForm.lastName}
                       onChange={(event) =>
-                        setProfileForm((prev) => ({
-                          ...prev,
-                          lastName: event.target.value,
-                        }))
+                        updateProfileField("lastName", event.target.value)
                       }
+                      maxLength={100}
                     />
                   </div>
                   <div className="space-y-2">
@@ -246,11 +375,9 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
                       id="matric-number"
                       value={profileForm.matricNumber}
                       onChange={(event) =>
-                        setProfileForm((prev) => ({
-                          ...prev,
-                          matricNumber: event.target.value,
-                        }))
+                        updateProfileField("matricNumber", event.target.value)
                       }
+                      maxLength={50}
                     />
                   </div>
                   <div className="space-y-2">
@@ -259,11 +386,9 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
                       id="phone-number"
                       value={profileForm.phoneNumber}
                       onChange={(event) =>
-                        setProfileForm((prev) => ({
-                          ...prev,
-                          phoneNumber: event.target.value,
-                        }))
+                        updateProfileField("phoneNumber", event.target.value)
                       }
+                      maxLength={30}
                     />
                   </div>
                   <div className="space-y-2">
@@ -272,11 +397,9 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
                       id="faculty"
                       value={profileForm.faculty}
                       onChange={(event) =>
-                        setProfileForm((prev) => ({
-                          ...prev,
-                          faculty: event.target.value,
-                        }))
+                        updateProfileField("faculty", event.target.value)
                       }
+                      maxLength={120}
                     />
                   </div>
                   <div className="space-y-2">
@@ -285,11 +408,9 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
                       id="department"
                       value={profileForm.department}
                       onChange={(event) =>
-                        setProfileForm((prev) => ({
-                          ...prev,
-                          department: event.target.value,
-                        }))
+                        updateProfileField("department", event.target.value)
                       }
+                      maxLength={120}
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
@@ -298,11 +419,9 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
                       id="level"
                       value={profileForm.level}
                       onChange={(event) =>
-                        setProfileForm((prev) => ({
-                          ...prev,
-                          level: event.target.value,
-                        }))
+                        updateProfileField("level", event.target.value)
                       }
+                      maxLength={32}
                     />
                   </div>
                 </div>
@@ -335,15 +454,23 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
             </CardContent>
           </Card>
 
+          {statsError ? (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-[var(--danger)]">
+              {statsError}
+            </p>
+          ) : null}
+
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="surface-card rounded-2xl">
               <CardHeader>
-                <CardTitle className="text-base">Cases in review</CardTitle>
+                <CardTitle className="text-base">Cases requiring attention</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-semibold">0</p>
+                <p className="text-3xl font-semibold">
+                  {isLoadingStats ? <LoaderCircle className="size-6 animate-spin" /> : (stats?.myOpenCount ?? 0)}
+                </p>
                 <p className="text-sm text-[var(--muted-foreground)]">
-                  Track your submitted grievances and comments.
+                  Open and in-progress grievances from your submissions.
                 </p>
                 <div className="mt-3">
                   <Button asChild size="sm" variant="secondary">
@@ -354,16 +481,30 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
             </Card>
             <Card className="surface-card rounded-2xl">
               <CardHeader>
-                <CardTitle className="text-base">Escalations pending</CardTitle>
+                <CardTitle className="text-base">
+                  {hasOperationalRole ? "Active SLA breaches" : "My submissions"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-semibold">0</p>
+                <p className="text-3xl font-semibold">
+                  {isLoadingStats ? (
+                    <LoaderCircle className="size-6 animate-spin" />
+                  ) : hasOperationalRole ? (
+                    (stats?.activeBreachCount ?? 0)
+                  ) : (
+                    (stats?.myTotalCount ?? 0)
+                  )}
+                </p>
                 <p className="text-sm text-[var(--muted-foreground)]">
-                  Monitor routing and SLA signals in operations board.
+                  {hasOperationalRole
+                    ? `Current breach signals across ${stats?.queueCount ?? 0} queued case(s).`
+                    : "Total grievances submitted with your account."}
                 </p>
                 <div className="mt-3">
                   <Button asChild size="sm" variant="secondary">
-                    <Link href="/operations">Open operations</Link>
+                    <Link href={hasOperationalRole ? "/operations" : "/grievances"}>
+                      {hasOperationalRole ? "Open operations" : "View submissions"}
+                    </Link>
                   </Button>
                 </div>
               </CardContent>
@@ -373,13 +514,21 @@ export function AppShell({ currentUser, onLogout, onProfileUpdate }: AppShellPro
                 <CardTitle className="text-base">AI provider status</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-semibold">NoOp</p>
+                <p className="text-xl font-semibold">
+                  {isLoadingStats ? (
+                    <LoaderCircle className="size-5 animate-spin" />
+                  ) : (
+                    (stats?.providerLabel ?? "Unknown")
+                  )}
+                </p>
                 <p className="text-sm text-[var(--muted-foreground)]">
-                  Groq remains optional and disabled by default.
+                  Optional Groq acceleration with deterministic baseline fallback.
                 </p>
                 <div className="mt-3">
                   <Button asChild size="sm" variant="secondary">
-                    <Link href="/analytics">Open analytics</Link>
+                    <Link href={hasOperationalRole ? "/analytics" : "/grievances"}>
+                      {hasOperationalRole ? "Open analytics" : "Open grievances"}
+                    </Link>
                   </Button>
                 </div>
               </CardContent>

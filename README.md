@@ -21,6 +21,7 @@ Required connection strings (do not change):
 - `DATABASE_URL=postgresql+psycopg://root:olayiwola@localhost:5432/grievance`
 - `TEST_DATABASE_URL=postgresql+psycopg://root:olayiwola@localhost:5432/grievance_test`
 
+
 ## Environment Setup
 
 1. Backend environment file:
@@ -129,6 +130,51 @@ The command prompts for email/password securely and is idempotent.
 .\scripts\tasks.ps1 release:smoke
 ```
 
+## Bulk CSV Import (Grievances)
+
+Use the CSV importer when you want to load many grievance records quickly through the real API.
+
+### Browser Upload (Admin)
+
+1. Login as an admin user.
+2. Open `http://localhost:3000/imports`.
+3. Download the template and upload your CSV.
+4. Review imported/failed rows in the on-page result panel.
+
+1. Start backend server:
+
+```powershell
+.\scripts\tasks.ps1 backend:dev
+```
+
+2. Prepare a CSV file using the template:
+
+- Template path: `backend/data/grievances_import_template.csv`
+- Required columns:
+  - `title`
+  - `description`
+  - `category`
+- Optional column:
+  - `is_anonymous` (`true/false`, `yes/no`, `1/0`)
+
+3. Run dry-run validation (no records created):
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.scripts.import_grievances --file data\grievances_import_template.csv --dry-run
+cd ..
+```
+
+4. Run actual import:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.scripts.import_grievances --file data\grievances_import_template.csv --email your_user_email@example.com
+cd ..
+```
+
+You will be prompted securely for the password if `--password` is not provided.
+
 ## Core API Endpoints
 
 - `GET /health`
@@ -160,6 +206,7 @@ The command prompts for email/password securely and is idempotent.
 - `POST /operations/escalation-rules` (admin)
 - `POST /operations/sla/evaluate` (staff/admin)
 - `GET /operations/sla/breaches` (staff/admin)
+- `POST /operations/imports/grievances/csv` (admin CSV upload import)
 - `GET /analytics/overview` (staff/admin analytics summary)
 - `GET /analytics/topic-clusters` (staff/admin cluster insights)
 - `GET /nlp/provider` (provider/runtime status)

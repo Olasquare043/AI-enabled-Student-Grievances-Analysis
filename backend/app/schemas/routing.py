@@ -64,3 +64,15 @@ class OperationalGrievanceItem(BaseModel):
     resolution_status: str | None = None
     escalation_count: int = 0
     has_active_breach: bool = False
+
+
+class GrievanceCSVImportError(BaseModel):
+    row_number: int
+    message: str
+
+
+class GrievanceCSVImportResponse(BaseModel):
+    total_rows: int
+    imported_count: int
+    failed_count: int
+    errors: list[GrievanceCSVImportError] = Field(default_factory=list)

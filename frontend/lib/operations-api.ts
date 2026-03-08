@@ -1,4 +1,5 @@
-﻿import { apiRequest } from "@/lib/api";
+import { REQUEST_TIMEOUT_MS, apiRequest, getApiBaseUrl } from "@/lib/api";
+import { getAccessToken } from "@/lib/auth";
 import type {
   DepartmentCreateRequest,
   DepartmentRead,
@@ -6,6 +7,7 @@ import type {
   EscalationRuleCreateRequest,
   EscalationRuleRead,
   GrievanceAssignmentRead,
+  GrievanceCSVImportResponse,
   OperationalGrievanceItem,
   RouteGrievanceRequest,
   SLABreachSummary,
@@ -114,4 +116,49 @@ export async function evaluateSla(): Promise<SLAEvaluationResponse> {
 
 export async function listSlaBreaches(): Promise<SLABreachSummary[]> {
   return apiRequest<SLABreachSummary[]>("/operations/sla/breaches");
+}
+
+export async function importGrievancesCsv(
+  file: File,
+): Promise<GrievanceCSVImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const headers = new Headers();
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/operations/imports/grievances/csv`, {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+      headers,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("CSV import request timed out.");
+    }
+    throw new Error("Unable to reach backend for CSV import.");
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+
+  const contentType = response.headers.get("content-type");
+  const isJson = contentType?.includes("application/json");
+  const payload = isJson ? await response.json() : null;
+
+  if (!response.ok) {
+    const detail = payload?.detail ?? "CSV import failed";
+    throw new Error(detail);
+  }
+
+  return payload as GrievanceCSVImportResponse;
 }

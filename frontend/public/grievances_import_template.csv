@@ -1,0 +1,6 @@
+title,description,category,is_anonymous
+Tuition payment not reflecting,"I paid tuition through the portal two days ago but my account still shows outstanding balance and registration is blocked.",bursary,false
+Hostel maintenance delay,"There is a persistent water leak in room B-14 and the maintenance request has not been addressed after multiple reports.",hostel,false
+Portal login timeout,"The student portal keeps timing out during course registration and I cannot submit my selected courses.",ict,false
+Missing exam result upload,"CSC301 result has not appeared on my dashboard even though other courses are already visible.",academic,false
+Night safety concern near gate,"Students reported repeated harassment incidents near the main gate after evening classes and need immediate action.",security,true

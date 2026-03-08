@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BarChart3, LoaderCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, BarChart3, House, LoaderCircle, RefreshCw } from "lucide-react";
 
 import { CategoryHotspots } from "@/components/analytics/category-hotspots";
 import { SlaCompliance } from "@/components/analytics/sla-compliance";
@@ -117,6 +117,12 @@ export default function AnalyticsPage() {
           <p className="text-xs text-[var(--muted-foreground)]">Last generated: {generatedAt}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button asChild variant="ghost">
+            <Link href="/">
+              <House className="size-4" />
+              Home
+            </Link>
+          </Button>
           <Button asChild variant="ghost">
             <Link href="/app">
               <ArrowLeft className="size-4" />

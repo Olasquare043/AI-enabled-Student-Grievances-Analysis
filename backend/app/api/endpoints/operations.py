@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from app.schemas.routing import (
     DepartmentCreateRequest,
     DepartmentRead,
     DepartmentUpdateRequest,
+    GrievanceCSVImportResponse,
     GrievanceAssignmentRead,
     OperationalGrievanceItem,
     RouteGrievanceRequest,
@@ -34,6 +35,10 @@ from app.services.escalation_service import (
     list_escalation_rules,
 )
 from app.services.grievance_service import get_grievance_by_id, is_staff_or_admin
+from app.services.grievance_import_service import (
+    CSVImportInputError,
+    import_grievances_from_csv,
+)
 from app.services.routing_service import (
     create_department,
     list_departments,
@@ -307,3 +312,43 @@ def sla_breaches_endpoint(
     db: Annotated[Session, Depends(get_db)],
 ) -> list[SLABreachSummary]:
     return list_active_breaches(db)
+
+
+@router.post(
+    "/imports/grievances/csv",
+    response_model=GrievanceCSVImportResponse,
+)
+async def import_grievances_csv_endpoint(
+    current_user: AdminUser,
+    db: Annotated[Session, Depends(get_db)],
+    file: UploadFile = File(...),
+) -> GrievanceCSVImportResponse:
+    filename = file.filename or ""
+    if not filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only .csv files are supported for this import endpoint.",
+        )
+
+    content = await file.read()
+    try:
+        result = import_grievances_from_csv(
+            db,
+            csv_bytes=content,
+            acting_user=current_user,
+        )
+    except CSVImportInputError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return GrievanceCSVImportResponse(
+        total_rows=result.total_rows,
+        imported_count=result.imported_count,
+        failed_count=result.failed_count,
+        errors=[
+            {"row_number": item.row_number, "message": item.message}
+            for item in result.errors
+        ],
+    )

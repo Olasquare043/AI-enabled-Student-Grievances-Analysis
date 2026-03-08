@@ -2,12 +2,14 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import HTTPException, status
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+import jwt
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
+from jwt import InvalidTokenError
 
 from app.core.config import get_settings
 
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+password_hasher = PasswordHasher()
 
 CREDENTIALS_EXCEPTION = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -17,11 +19,14 @@ CREDENTIALS_EXCEPTION = HTTPException(
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return password_hasher.verify(hashed_password, plain_password)
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
+        return False
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    return password_hasher.hash(password)
 
 
 def create_access_token(
@@ -48,6 +53,7 @@ def decode_access_token(token: str) -> dict[str, Any]:
             token,
             settings.jwt_secret,
             algorithms=[settings.jwt_algorithm],
+            options={"require": ["sub", "exp"]},
         )
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         raise CREDENTIALS_EXCEPTION from exc

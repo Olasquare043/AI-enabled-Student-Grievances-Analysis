@@ -94,7 +94,18 @@ export default function HomePage() {
               Student Grievance Intelligence
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            <nav className="hidden items-center gap-4 text-sm md:flex">
+              <Link href="/privacy" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+                Privacy
+              </Link>
+              <Link href="/terms" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+                Terms
+              </Link>
+              <Link href="/contact" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+                Contact
+              </Link>
+            </nav>
             <Button asChild variant="ghost" size="sm">
               <Link href="/login">Login</Link>
             </Button>
@@ -304,16 +315,16 @@ export default function HomePage() {
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
             <div className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
               <MessageSquareText className="size-4" />
-              <span>© 2026 Student Grievance Intelligence. All rights reserved.</span>
+              <span>&copy; 2026 Student Grievance Intelligence. All rights reserved.</span>
             </div>
             <div className="flex items-center gap-6 text-sm">
-              <Link href="#" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+              <Link href="/privacy" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
                 Privacy Policy
               </Link>
-              <Link href="#" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+              <Link href="/terms" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
                 Terms of Service
               </Link>
-              <Link href="#" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+              <Link href="/contact" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
                 Contact
               </Link>
             </div>
@@ -323,3 +334,4 @@ export default function HomePage() {
     </div>
   );
 }
+

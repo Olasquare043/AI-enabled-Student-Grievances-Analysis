@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   CheckCheck,
+  House,
+  LayoutDashboard,
   LoaderCircle,
   RotateCw,
   UserRoundCheck,
@@ -169,12 +171,26 @@ export default function GrievanceDetailPage() {
   return (
     <div className="mx-auto min-h-screen w-full max-w-6xl px-4 py-6 md:px-8">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/grievances">
-            <ArrowLeft className="size-4" />
-            Back to grievances
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/">
+              <House className="size-4" />
+              Home
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/app">
+              <LayoutDashboard className="size-4" />
+              Dashboard
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/grievances">
+              <ArrowLeft className="size-4" />
+              Back to grievances
+            </Link>
+          </Button>
+        </div>
         <Button variant="secondary" size="sm" onClick={() => void loadDetail()}>
           <RotateCw className="size-4" />
           Reload

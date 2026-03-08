@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, LoaderCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, House, LoaderCircle, RefreshCw } from "lucide-react";
 
 import { SlaBoard } from "@/components/operations/sla-board";
 import { Button } from "@/components/ui/button";
@@ -152,6 +152,12 @@ export default function OperationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button asChild variant="ghost">
+            <Link href="/">
+              <House className="size-4" />
+              Home
+            </Link>
+          </Button>
           <Button asChild variant="ghost">
             <Link href="/app">
               <ArrowLeft className="size-4" />

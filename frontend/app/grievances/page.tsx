@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CircleAlert,
   Filter,
+  House,
   LayoutDashboard,
   ListChecks,
   LoaderCircle,
@@ -119,6 +120,12 @@ export default function GrievancesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button asChild variant="ghost">
+            <Link href="/">
+              <House className="size-4" />
+              Home
+            </Link>
+          </Button>
           <Button asChild variant="ghost">
             <Link href="/app">
               <LayoutDashboard className="size-4" />
