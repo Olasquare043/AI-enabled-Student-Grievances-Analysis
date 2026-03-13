@@ -272,6 +272,24 @@ The seeded grievance history spans 7, 30, and 90 day reporting windows so the da
 
 On Windows, run `frontend:build` in a fresh PowerShell session after `release:smoke`. The smoke script intentionally skips the inline Next.js production build there because long-lived PowerShell sessions can trigger Turbopack `spawn EPERM`.
 
+### Optional QA Walkthrough
+
+The optional browser walkthrough at `scripts/qa_walkthrough.mjs` now uses the seeded demo accounts by default:
+
+This script is not part of the normal build/test pipeline and expects `playwright` to be installed in your Node environment before you run it.
+
+- Student: `ola2@gmail.com` / `password123`
+- Admin: `admin@gmail.com` / `password123`
+
+Override them only if you are testing against a different dataset:
+
+```powershell
+$env:QA_STUDENT_EMAIL="custom.student@example.com"
+$env:QA_STUDENT_PASSWORD="StrongPass123!"
+$env:QA_ADMIN_EMAIL="custom.admin@example.com"
+$env:QA_ADMIN_PASSWORD="StrongPass123!"
+```
+
 ## Feature Areas
 
 ### Authentication And Roles

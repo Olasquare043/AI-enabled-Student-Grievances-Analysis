@@ -16,6 +16,7 @@ const REQUIRED_INCLUDES = [
   "**/*.tsx",
   ".next/types/routes.d.ts",
   ".next/types/validator.ts",
+  ".next/types/**/*.ts",
   ".next/dev/types/**/*.ts",
   ".next/dev/types/**/*.d.ts",
   "**/*.mts",

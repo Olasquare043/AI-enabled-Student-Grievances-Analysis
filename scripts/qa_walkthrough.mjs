@@ -4,20 +4,19 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const baseUrl = process.env.QA_BASE_URL ?? "http://127.0.0.1:3000";
-const adminEmail = process.env.QA_ADMIN_EMAIL ?? "qa.admin@example.com";
-const adminPassword = process.env.QA_ADMIN_PASSWORD ?? "AdminPass123!";
+const adminEmail = process.env.QA_ADMIN_EMAIL ?? "admin@gmail.com";
+const adminPassword = process.env.QA_ADMIN_PASSWORD ?? "password123";
+const studentEmail = process.env.QA_STUDENT_EMAIL ?? "ola2@gmail.com";
+const studentPassword = process.env.QA_STUDENT_PASSWORD ?? "password123";
 const runId = Date.now().toString();
 const artifactsDir = path.resolve(process.cwd(), "scripts", "qa-artifacts", runId);
 
 const suffix = runId.slice(-6);
-const studentEmail = `qa.student.${suffix}@example.com`;
-const studentPassword = "StudentPass123!";
-const studentMatric = `MAT${suffix}`;
-const grievanceTitle = `QA Grievance ${suffix}`;
+const grievanceTitle = `Fee confirmation follow-up ${suffix}`;
 const grievanceDescription =
-  "Tuition payment update was delayed after submission and portal still shows pending.";
+  "My school fee payment has been confirmed by the bank, but the portal still shows pending and blocks course registration.";
 const grievanceComment =
-  "Follow-up: payment confirmation has been uploaded and registrar review is requested.";
+  "Follow-up: I uploaded the bank receipt again today and need bursary confirmation so registration can proceed.";
 
 await mkdir(artifactsDir, { recursive: true });
 
@@ -68,31 +67,35 @@ await runStep("contact", async () => {
   await page.getByRole("heading", { name: /Contact and Support/i }).waitFor();
 });
 
-await runStep("register", async () => {
+await runStep("register_page", async () => {
   await page.goto(`${baseUrl}/register`, { waitUntil: "networkidle" });
-  await page.getByLabel("First name").fill("QA");
-  await page.getByLabel("Last name").fill("Student");
-  await page.getByLabel("Matric number").fill(studentMatric);
+  await page.getByRole("heading", { name: /Register account/i }).waitFor();
+});
+
+await runStep("student_login", async () => {
+  await page.goto(`${baseUrl}/login`, { waitUntil: "networkidle" });
   await page.getByLabel("Email").fill(studentEmail);
-  await page.getByLabel("Password", { exact: true }).fill(studentPassword);
-  await page.getByLabel("Confirm password").fill(studentPassword);
-  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByLabel("Password").fill(studentPassword);
+  await page.getByRole("button", { name: /Sign in/i }).click();
   await page.waitForURL("**/app", { timeout: 30000 });
-  await page.getByRole("heading", { name: /Student Grievances Dashboard/i }).waitFor();
+  await page.getByRole("heading", { name: /Student overview/i }).waitFor();
 });
 
 await runStep("app_profile_update", async () => {
-  await page.getByLabel("Phone number").fill("+2348000000000");
-  await page.getByLabel("Faculty").fill("Engineering");
-  await page.getByLabel("Department").fill("Computer Engineering");
-  await page.getByLabel("Level").fill("400");
+  await page.goto(`${baseUrl}/app/profile`, { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: /Profile and identity/i }).waitFor();
+  await page.getByRole("button", { name: /^Edit$/i }).click();
+  await page.getByLabel("Phone number").fill("08030796165");
+  await page.getByLabel("Faculty").fill("Science");
+  await page.getByLabel("Department").fill("Computer Science");
+  await page.getByLabel("Level").fill("500");
   await page.getByRole("button", { name: /Save profile/i }).click();
-  await page.getByText(/Profile updated successfully/i).waitFor({ timeout: 15000 });
+  await page.getByText(/Profile updated/i).waitFor({ timeout: 15000 });
 });
 
 await runStep("grievances_list_and_create", async () => {
-  await page.goto(`${baseUrl}/grievances`, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: /Grievance Intake and Tracking/i }).waitFor();
+  await page.goto(`${baseUrl}/app/grievances`, { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: /Grievance intake and tracking/i }).waitFor();
   await page.getByLabel("Title").fill(grievanceTitle);
   await page.getByLabel("Category").selectOption("ict");
   await page.getByLabel("Description").fill(grievanceDescription);
@@ -107,7 +110,7 @@ await runStep("grievances_list_and_create", async () => {
 await runStep("grievance_detail_and_comment", async () => {
   const grievanceCard = page.locator("article").filter({ hasText: grievanceTitle }).first();
   await grievanceCard.getByRole("link", { name: /Open details/i }).click();
-  await page.waitForURL("**/grievances/*", { timeout: 20000 });
+  await page.waitForURL("**/app/grievances/*", { timeout: 20000 });
   await page.getByRole("heading", { name: grievanceTitle }).waitFor();
   await page.getByLabel("Add comment").fill(grievanceComment);
   await page.getByRole("button", { name: /Post comment/i }).click();
@@ -115,13 +118,14 @@ await runStep("grievance_detail_and_comment", async () => {
 });
 
 await runStep("student_access_operations_redirect", async () => {
-  await page.goto(`${baseUrl}/operations`, { waitUntil: "networkidle" });
+  await page.goto(`${baseUrl}/app/operations`, { waitUntil: "networkidle" });
   await page.waitForURL("**/app", { timeout: 20000 });
+  await page.getByRole("heading", { name: /Student overview/i }).waitFor();
 });
 
-await runStep("student_access_analytics_redirect", async () => {
-  await page.goto(`${baseUrl}/analytics`, { waitUntil: "networkidle" });
-  await page.waitForURL("**/app", { timeout: 20000 });
+await runStep("student_analysis", async () => {
+  await page.goto(`${baseUrl}/app/analysis`, { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: /Personal analysis/i }).waitFor();
 });
 
 await runStep("student_logout", async () => {
@@ -135,17 +139,27 @@ await runStep("admin_login", async () => {
   await page.getByLabel("Password").fill(adminPassword);
   await page.getByRole("button", { name: /Sign in/i }).click();
   await page.waitForURL("**/app", { timeout: 30000 });
-  await page.getByRole("heading", { name: /Student Grievances Dashboard/i }).waitFor();
+  await page.getByRole("heading", { name: /Dashboard overview/i }).waitFor();
 });
 
 await runStep("operations", async () => {
-  await page.goto(`${baseUrl}/operations`, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: /Routing, SLA and Escalation Board/i }).waitFor();
+  await page.goto(`${baseUrl}/app/operations`, { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: /Routing and SLA operations/i }).waitFor();
 });
 
-await runStep("analytics", async () => {
-  await page.goto(`${baseUrl}/analytics`, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: /Analytics Dashboard/i }).waitFor();
+await runStep("admin_analysis", async () => {
+  await page.goto(`${baseUrl}/app/analysis`, { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: /Operational analysis/i }).waitFor();
+});
+
+await runStep("analytics_workspace", async () => {
+  await page.goto(`${baseUrl}/app/analytics`, { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: /Analytics workspace/i }).waitFor();
+});
+
+await runStep("user_access", async () => {
+  await page.goto(`${baseUrl}/app/users`, { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: /User role management/i }).waitFor();
 });
 
 await runStep("admin_logout", async () => {
@@ -160,6 +174,7 @@ const summary = {
   run_id: runId,
   base_url: baseUrl,
   artifacts_dir: artifactsDir,
+  uses_seeded_accounts: true,
   student_email: studentEmail,
   admin_email: adminEmail,
   results: report,
