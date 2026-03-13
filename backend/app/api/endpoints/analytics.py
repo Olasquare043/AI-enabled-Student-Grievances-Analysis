@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi_cache.decorator import cache
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -22,6 +23,7 @@ def _require_staff_or_admin(current_user: User) -> None:
 
 
 @router.get("/overview", response_model=AnalyticsOverviewResponse)
+@cache(expire=3600)
 def analytics_overview_endpoint(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -33,6 +35,7 @@ def analytics_overview_endpoint(
 
 
 @router.get("/topic-clusters", response_model=AnalyticsTopicClustersResponse)
+@cache(expire=3600)
 def analytics_topic_clusters_endpoint(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],

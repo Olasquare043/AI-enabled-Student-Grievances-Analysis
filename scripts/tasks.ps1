@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("backend:dev", "backend:test", "backend:migrate", "frontend:dev", "frontend:check", "release:smoke")]
+    [ValidateSet("backend:dev", "backend:test", "backend:migrate", "backend:seed", "frontend:dev", "frontend:check", "frontend:build", "release:smoke")]
     [string]$Task
 )
 
@@ -46,6 +46,17 @@ switch ($Task) {
             Pop-Location
         }
     }
+    "backend:seed" {
+        Push-Location (Join-Path -Path $PSScriptRoot -ChildPath "..\backend")
+        try {
+            $python = Get-BackendPython
+            & $python -m app.scripts.seed_demo_data --force-reset
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+        finally {
+            Pop-Location
+        }
+    }
     "frontend:dev" {
         Push-Location (Join-Path -Path $PSScriptRoot -ChildPath "..\frontend")
         try {
@@ -62,6 +73,16 @@ switch ($Task) {
             npm run lint
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             npm run typecheck
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+        finally {
+            Pop-Location
+        }
+    }
+    "frontend:build" {
+        Push-Location (Join-Path -Path $PSScriptRoot -ChildPath "..\frontend")
+        try {
+            npm run build
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         }
         finally {

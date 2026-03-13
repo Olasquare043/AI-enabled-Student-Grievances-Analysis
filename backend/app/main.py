@@ -1,8 +1,12 @@
 import logging
 from contextlib import asynccontextmanager
 
+import redis.asyncio as aioredis
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.inmemory import InMemoryBackend
+from fastapi_cache.backends.redis import RedisBackend
 
 from app.api.router import api_router
 from app.core.config import get_settings
@@ -19,9 +23,45 @@ from app.services.user_service import seed_roles
 logger = logging.getLogger(__name__)
 
 
+async def initialize_cache(app: FastAPI) -> None:
+    settings = get_settings()
+    cache_backend = settings.cache_backend
+    app.state.cache_client = None
+
+    if cache_backend in {"auto", "redis"}:
+        redis = None
+        try:
+            redis = aioredis.from_url(settings.redis_url)
+            await redis.ping()
+            FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+            app.state.cache_client = redis
+            app.state.cache_backend = "redis"
+            logger.info("application_cache_initialized backend=redis")
+            return
+        except Exception as exc:  # pragma: no cover - defensive startup path
+            if redis is not None:
+                await redis.aclose()
+            if cache_backend == "redis":
+                logger.warning(
+                    "application_cache_redis_unavailable backend=memory reason=%s",
+                    exc,
+                )
+            else:
+                logger.info(
+                    "application_cache_auto_fallback backend=memory reason=%s",
+                    exc,
+                )
+
+    FastAPICache.init(InMemoryBackend(), prefix="fastapi-cache")
+    app.state.cache_backend = "memory"
+    logger.info("application_cache_initialized backend=memory")
+
+
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(app: FastAPI):
     configure_logging()
+    await initialize_cache(app)
+
     with SessionLocal() as db:
         seed_roles(db)
         seed_departments(db)
@@ -29,6 +69,10 @@ async def lifespan(_: FastAPI):
         seed_default_escalation_rules(db)
     logger.info("application_startup_complete")
     yield
+
+    cache_client = getattr(app.state, "cache_client", None)
+    if cache_client is not None:
+        await cache_client.aclose()
     logger.info("application_shutdown_complete")
 
 

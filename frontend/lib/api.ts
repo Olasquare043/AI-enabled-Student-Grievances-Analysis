@@ -12,7 +12,15 @@ export const REQUEST_TIMEOUT_MS = 15000;
 export function getApiBaseUrl() {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   if (apiBaseUrl) {
-    return apiBaseUrl.replace(/\/$/, "");
+    try {
+      const normalizedUrl = new URL(apiBaseUrl);
+      if (normalizedUrl.hostname === "localhost") {
+        normalizedUrl.hostname = "127.0.0.1";
+      }
+      return normalizedUrl.toString().replace(/\/$/, "");
+    } catch {
+      return apiBaseUrl.replace(/\/$/, "");
+    }
   }
   return "http://127.0.0.1:8000";
 }

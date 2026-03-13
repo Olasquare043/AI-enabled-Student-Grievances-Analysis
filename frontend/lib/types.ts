@@ -1,6 +1,8 @@
+export type RoleName = "student" | "staff" | "admin";
+
 export type RoleRead = {
   id: number;
-  name: string;
+  name: RoleName;
 };
 
 export type UserRead = {
@@ -45,6 +47,37 @@ export type UserProfileUpdateRequest = {
   faculty?: string;
   department?: string;
   level?: string;
+};
+
+export type RoleAssignmentRequest = {
+  role_name: RoleName;
+};
+
+export type AdminUserCreateRequest = {
+  email: string;
+  password: string;
+  role_name: RoleName;
+  first_name?: string;
+  last_name?: string;
+  matric_number?: string;
+  phone_number?: string;
+  faculty?: string;
+  department?: string;
+  level?: string;
+};
+
+export type AdminUserUpdateRequest = {
+  email: string;
+  role_name: RoleName;
+  password?: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  matric_number?: string | null;
+  phone_number?: string | null;
+  faculty?: string | null;
+  department?: string | null;
+  level?: string | null;
+  is_active: boolean;
 };
 
 export type GrievanceStatus = "open" | "in_progress" | "resolved" | "closed";
@@ -231,12 +264,21 @@ export type EscalationRuleCreateRequest = {
 export type SLABreachSummary = {
   event_id: string;
   grievance_id: string;
+  grievance_title: string;
+  grievance_status: string;
   department_id?: number | null;
   breach_type: "first_response" | "resolution";
   due_at: string;
   occurred_at?: string | null;
   breach_minutes: number;
   escalation_count: number;
+  student: GrievanceUserSummary;
+  assigned_to_user?: GrievanceUserSummary | null;
+  department?: {
+    id: number;
+    name: string;
+    code: string;
+  } | null;
 };
 
 export type SLAEvaluationResponse = {
@@ -337,4 +379,43 @@ export type NLPProviderStatus = {
   provider: string;
   llm_enabled: boolean;
   model?: string | null;
+};
+
+export type NLPCategoryScore = {
+  label: string;
+  score: number;
+};
+
+export type NLPSentimentResult = {
+  label: string;
+  score: number;
+  positive_hits: number;
+  negative_hits: number;
+};
+
+export type NLPUrgencyResult = {
+  label: string;
+  score: number;
+  reasons: string[];
+};
+
+export type NLPTextAnalysisRequest = {
+  text: string;
+  include_llm_enrichment?: boolean;
+};
+
+export type NLPTextAnalysisResponse = {
+  provider: string;
+  predicted_category: string;
+  category_confidence: number;
+  category_suggestions: NLPCategoryScore[];
+  sentiment: NLPSentimentResult;
+  urgency: NLPUrgencyResult;
+  summary: string;
+  entities: Record<string, unknown>;
+};
+
+export type NLPGrievanceAnalysisResponse = NLPTextAnalysisResponse & {
+  grievance_id: string;
+  source_category: string;
 };

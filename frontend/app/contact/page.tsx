@@ -14,8 +14,8 @@ export default function ContactPage() {
             Back to home
           </Link>
         </Button>
-        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs font-medium text-[var(--muted-foreground)]">
-          <Headset className="size-3.5 text-[var(--primary)]" />
+        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground">
+          <Headset className="size-3.5 text-primary" />
           Support channel
         </div>
       </div>
@@ -23,17 +23,17 @@ export default function ContactPage() {
       <Card className="surface-card rounded-2xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
-            <MessageSquareText className="size-6 text-[var(--primary)]" />
+            <MessageSquareText className="size-6 text-primary" />
             Contact and Support
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 text-sm leading-relaxed text-[var(--muted-foreground)]">
+        <CardContent className="space-y-4 text-sm leading-relaxed text-muted-foreground">
           <p>
             Need deployment support, policy configuration help, or technical troubleshooting for
             this grievance platform?
           </p>
-          <div className="rounded-xl border border-[var(--border)] bg-white/80 p-4">
-            <p className="font-medium text-[var(--foreground)]">Official support channel</p>
+          <div className="rounded-xl border border-border bg-card/80 p-4">
+            <p className="font-medium text-foreground">Official support channel</p>
             <p className="mt-1">
               Use the grievance portal for support requests so each issue is tracked with audit,
               routing, and SLA visibility.
@@ -47,7 +47,7 @@ export default function ContactPage() {
               <Link href="/login">Sign in</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/grievances">Open grievances</Link>
+              <Link href="/app/grievances">Open grievances</Link>
             </Button>
           </div>
         </CardContent>

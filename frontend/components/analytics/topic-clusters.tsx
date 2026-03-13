@@ -9,10 +9,10 @@ type TopicClustersProps = {
 
 export function TopicClusters({ clusters }: TopicClustersProps) {
   return (
-    <Card className="surface-card rounded-2xl">
+    <Card className="surface-card rounded-[2rem]">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <BrainCircuit className="size-5 text-[var(--primary)]" />
+          <BrainCircuit className="size-5 text-primary" />
           Topic clusters and recurring themes
         </CardTitle>
       </CardHeader>
@@ -20,24 +20,24 @@ export function TopicClusters({ clusters }: TopicClustersProps) {
         {clusters.map((cluster) => (
           <div
             key={cluster.cluster_id}
-            className="rounded-lg border border-[var(--border)] bg-white px-4 py-3"
+            className="rounded-[1.5rem] border border-border/70 bg-background/70 px-4 py-4"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="font-medium">
                 Cluster #{cluster.cluster_id} ({cluster.size} grievance(s))
               </p>
-              <p className="text-xs text-[var(--muted-foreground)]">
+              <p className="text-xs text-muted-foreground">
                 Members: {cluster.member_ids.length}
               </p>
             </div>
-            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+            <p className="mt-2 text-sm text-muted-foreground">
               Keywords: {cluster.top_keywords.join(", ") || "n/a"}
             </p>
             <ul className="mt-2 space-y-1 text-sm">
               {cluster.sample_titles.map((title, index) => (
                 <li
                   key={`${cluster.cluster_id}-${index}`}
-                  className="rounded bg-[var(--surface-tint)] px-2 py-1"
+                  className="rounded-2xl bg-muted px-3 py-2"
                 >
                   {title}
                 </li>
@@ -46,7 +46,7 @@ export function TopicClusters({ clusters }: TopicClustersProps) {
           </div>
         ))}
         {clusters.length === 0 ? (
-          <p className="text-sm text-[var(--muted-foreground)]">
+          <p className="text-sm text-muted-foreground">
             No clusters available in the selected time window.
           </p>
         ) : null}

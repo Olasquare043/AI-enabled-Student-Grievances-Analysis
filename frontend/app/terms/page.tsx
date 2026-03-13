@@ -14,8 +14,8 @@ export default function TermsPage() {
             Back to home
           </Link>
         </Button>
-        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs font-medium text-[var(--muted-foreground)]">
-          <FileText className="size-3.5 text-[var(--primary)]" />
+        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground">
+          <FileText className="size-3.5 text-primary" />
           Usage terms
         </div>
       </div>
@@ -23,11 +23,11 @@ export default function TermsPage() {
       <Card className="surface-card rounded-2xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
-            <Scale className="size-6 text-[var(--primary)]" />
+            <Scale className="size-6 text-primary" />
             Terms of Service
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 text-sm leading-relaxed text-[var(--muted-foreground)]">
+        <CardContent className="space-y-4 text-sm leading-relaxed text-muted-foreground">
           <p>
             The grievance platform is intended for legitimate academic support and institutional
             complaint management. Users must provide accurate information and use respectful,

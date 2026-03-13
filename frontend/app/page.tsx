@@ -18,6 +18,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 const features = [
   {
@@ -82,37 +83,40 @@ const stats = [
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen w-full">
+    <div className="min-h-screen w-full bg-background text-foreground">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-[var(--border)] bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-8">
-          <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--primary)] to-[var(--accent)]">
+      <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-background/80 backdrop-blur-sm">
+        <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4 md:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
               <MessageSquareText className="size-5 text-white" />
             </div>
-            <span className="text-lg font-semibold tracking-tight">
-              Student Grievance Intelligence
+            <span className="min-w-0 text-sm font-semibold leading-tight tracking-tight text-foreground sm:text-base md:text-lg">
+              <span className="sm:hidden">Student Grievance</span>
+              <span className="hidden sm:inline">Student Grievance Intelligence</span>
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             <nav className="hidden items-center gap-4 text-sm md:flex">
-              <Link href="/privacy" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+              <Link href="/privacy" className="text-muted-foreground transition-colors hover:text-primary">
                 Privacy
               </Link>
-              <Link href="/terms" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+              <Link href="/terms" className="text-muted-foreground transition-colors hover:text-primary">
                 Terms
               </Link>
-              <Link href="/contact" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+              <Link href="/contact" className="text-muted-foreground transition-colors hover:text-primary">
                 Contact
               </Link>
             </nav>
-            <Button asChild variant="ghost" size="sm">
+            <ThemeSwitcher />
+            <Button asChild variant="ghost" size="sm" className="px-2.5 sm:px-3">
               <Link href="/login">Login</Link>
             </Button>
-            <Button asChild size="sm">
+            <Button asChild size="sm" className="px-3 sm:px-4">
               <Link href="/register">
-                Get Started
-                <ArrowRight className="ml-1 size-4" />
+                <span className="sm:hidden">Start</span>
+                <span className="hidden sm:inline">Get Started</span>
+                <ArrowRight className="ml-1 hidden size-4 sm:inline" />
               </Link>
             </Button>
           </div>
@@ -121,31 +125,34 @@ export default function HomePage() {
 
       <main className="mx-auto w-full max-w-7xl px-4 md:px-8">
         {/* Hero Section */}
-        <section className="grid items-center gap-12 py-8 md:grid-cols-2 md:py-12">
+        <section className="grid items-center gap-8 py-6 md:grid-cols-2 md:gap-12 md:py-12">
           <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-gradient-to-r from-blue-50 to-cyan-50 px-4 py-2 text-sm font-medium">
-              <Sparkles className="size-4 text-[var(--primary)]" />
-              <span className="text-[var(--primary)]">Production-ready AI platform</span>
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/80 px-3 py-2 text-sm font-medium text-secondary-foreground shadow-sm sm:px-4">
+              <Sparkles className="size-4 text-primary" />
+              <span className="text-primary">Production-ready AI platform</span>
             </div>
             
-            <h1 className="text-4xl font-bold leading-[1.15] tracking-tight md:text-5xl">
-              Transform campus grievance management with <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] bg-clip-text text-transparent">AI-powered insights</span>
+            <h1 className="text-3xl font-bold leading-[1.12] tracking-tight sm:text-4xl md:text-5xl">
+              Transform campus grievance management with{" "}
+              <span className="bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent">
+                AI-powered insights
+              </span>
             </h1>
             
-            <p className="max-w-xl text-lg leading-relaxed text-[var(--muted-foreground)]">
+            <p className="max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
               Launch a secure, intelligent grievance platform with authentication, RBAC, 
               real-time analytics, and optional AI provider integration that enhances 
               decision-making without creating dependencies.
             </p>
 
-            <div className="flex flex-wrap gap-4">
-              <Button asChild size="lg" className="h-12 px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
+              <Button asChild size="lg" className="h-12 w-full px-6 sm:w-auto">
                 <Link href="/register">
                   Create account
                   <ArrowRight className="ml-2 size-4" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="h-12 px-6">
+              <Button asChild variant="outline" size="lg" className="h-12 w-full px-6 sm:w-auto">
                 <Link href="/app">
                   <LayoutDashboard className="mr-2 size-4" />
                   View dashboard
@@ -154,11 +161,11 @@ export default function HomePage() {
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-2 gap-4 pt-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 pt-2 md:grid-cols-4">
               {stats.map((stat) => (
                 <div key={stat.label} className="space-y-1">
-                  <div className="text-2xl font-bold text-[var(--primary)]">{stat.value}</div>
-                  <div className="text-xs text-[var(--muted-foreground)]">{stat.label}</div>
+                  <div className="text-2xl font-bold text-primary">{stat.value}</div>
+                  <div className="text-[11px] leading-4 text-muted-foreground sm:text-xs">{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -166,7 +173,7 @@ export default function HomePage() {
 
           {/* Hero Image */}
           <div className="relative">
-            <div className="surface-card relative overflow-hidden rounded-3xl p-6">
+            <div className="surface-card relative overflow-hidden rounded-3xl p-4 sm:p-6">
               {/* Decorative elements */}
               <div className="absolute -right-20 -top-20 size-64 rounded-full bg-gradient-to-br from-blue-400/30 to-cyan-400/30 blur-3xl" />
               <div className="absolute -bottom-20 -left-20 size-64 rounded-full bg-gradient-to-tr from-violet-400/30 to-purple-400/30 blur-3xl" />
@@ -176,20 +183,20 @@ export default function HomePage() {
                 alt="Illustration of students receiving support from campus services"
                 width={720}
                 height={520}
-                className="relative z-10 h-auto w-full rounded-2xl border border-white/50 shadow-2xl"
+                className="relative z-10 h-auto w-full rounded-2xl border border-border/60 shadow-2xl"
                 priority
               />
             </div>
 
             {/* Floating card */}
-            <div className="absolute -bottom-4 -left-4 z-20 hidden rounded-xl border border-[var(--border)] bg-white p-4 shadow-xl md:block">
+            <div className="absolute -bottom-4 -left-4 z-20 hidden rounded-xl border border-border/70 bg-card/95 p-4 shadow-xl backdrop-blur md:block">
               <div className="flex items-center gap-3">
                 <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500">
                   <Zap className="size-5 text-white" />
                 </div>
                 <div>
                   <div className="text-sm font-semibold">Live Analytics</div>
-                  <div className="text-xs text-[var(--muted-foreground)]">Real-time insights</div>
+                  <div className="text-xs text-muted-foreground">Real-time insights</div>
                 </div>
               </div>
             </div>
@@ -197,12 +204,12 @@ export default function HomePage() {
         </section>
 
         {/* Features Grid */}
-        <section className="py-16">
+        <section className="py-12 md:py-16">
           <div className="mb-12 text-center">
-            <h2 className="mb-4 text-3xl font-bold md:text-4xl">
+            <h2 className="mb-4 text-2xl font-bold sm:text-3xl md:text-4xl">
               Comprehensive grievance management
             </h2>
-            <p className="mx-auto max-w-2xl text-lg text-[var(--muted-foreground)]">
+            <p className="mx-auto max-w-2xl text-base text-muted-foreground sm:text-lg">
               Everything you need to streamline student support, track issues, and drive 
               institutional improvements through data-driven insights.
             </p>
@@ -212,7 +219,7 @@ export default function HomePage() {
             {features.map((feature) => (
               <Card 
                 key={feature.title} 
-                className="group surface-card rounded-2xl border-2 transition-all hover:border-[var(--primary)]/20 hover:shadow-xl"
+                className="group surface-card rounded-2xl border-2 transition-all hover:border-primary/25 hover:shadow-xl"
               >
                 <CardHeader>
                   <div className={`mb-3 inline-flex size-12 items-center justify-center rounded-xl bg-gradient-to-br ${feature.gradient} shadow-lg`}>
@@ -221,7 +228,7 @@ export default function HomePage() {
                   <CardTitle className="text-xl">{feature.title}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="leading-relaxed text-[var(--muted-foreground)]">
+                  <p className="leading-relaxed text-muted-foreground">
                     {feature.description}
                   </p>
                 </CardContent>
@@ -231,18 +238,18 @@ export default function HomePage() {
         </section>
 
         {/* Benefits Section */}
-        <section className="py-16">
+        <section className="py-12 md:py-16">
           <div className="surface-card overflow-hidden rounded-3xl">
-            <div className="grid gap-8 p-8 md:grid-cols-2 md:p-12">
+            <div className="grid gap-8 p-5 sm:p-8 md:grid-cols-2 md:p-12">
               <div className="space-y-6">
-                <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 px-4 py-2 text-sm font-medium text-emerald-700">
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-[0_12px_28px_rgba(5,150,105,0.16)] dark:border-emerald-500 dark:bg-emerald-500">
                   <LineChart className="size-4" />
                   Measurable impact
                 </div>
-                <h2 className="text-3xl font-bold md:text-4xl">
+                <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">
                   Why institutions choose our platform
                 </h2>
-                <p className="text-lg text-[var(--muted-foreground)]">
+                <p className="text-base text-muted-foreground sm:text-lg">
                   Transform your student support operations with proven results and 
                   enterprise-grade reliability.
                 </p>
@@ -252,13 +259,13 @@ export default function HomePage() {
                 {benefits.map((benefit) => (
                   <div 
                     key={benefit.title}
-                    className="space-y-3 rounded-xl border border-[var(--border)] bg-white/50 p-6"
+                    className="space-y-3 rounded-xl border border-border/70 bg-background/55 p-6 backdrop-blur"
                   >
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--primary)] to-[var(--accent)]">
+                    <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
                       <benefit.icon className="size-5 text-white" />
                     </div>
                     <h3 className="font-semibold">{benefit.title}</h3>
-                    <p className="text-sm text-[var(--muted-foreground)]">
+                    <p className="text-sm text-muted-foreground">
                       {benefit.description}
                     </p>
                   </div>
@@ -269,24 +276,26 @@ export default function HomePage() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-16">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] p-12 text-center text-white">
+        <section className="py-12 md:py-16">
+          <div className="relative overflow-hidden rounded-3xl border border-sky-400/20 bg-slate-950 p-6 text-center text-white shadow-2xl sm:p-8 md:p-12">
             {/* Background pattern */}
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute left-0 top-0 size-64 rounded-full bg-white blur-3xl" />
-              <div className="absolute bottom-0 right-0 size-64 rounded-full bg-white blur-3xl" />
+            <div className="absolute inset-0">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+              <div className="absolute left-0 top-0 size-72 rounded-full bg-sky-500/25 blur-3xl" />
+              <div className="absolute bottom-0 right-0 size-72 rounded-full bg-amber-400/16 blur-3xl" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,hsl(203_76%_36%_/_0.18),transparent_58%)]" />
             </div>
 
             <div className="relative z-10 mx-auto max-w-3xl space-y-6">
-              <h2 className="text-4xl font-bold md:text-5xl">
+              <h2 className="text-3xl font-bold sm:text-4xl md:text-5xl">
                 Ready to transform your grievance management?
               </h2>
-              <p className="text-lg text-blue-100">
+              <p className="text-base text-white/78 sm:text-lg">
                 Join leading institutions in delivering better student support through 
                 intelligent automation and actionable insights.
               </p>
-              <div className="flex flex-wrap justify-center gap-4 pt-4">
-                <Button asChild size="lg" variant="secondary" className="h-12 px-8">
+              <div className="flex flex-col justify-center gap-3 pt-4 sm:flex-row sm:flex-wrap sm:gap-4">
+                <Button asChild size="lg" className="h-12 w-full px-8 shadow-lg shadow-sky-950/20 sm:w-auto">
                   <Link href="/register">
                     Get started free
                     <ArrowRight className="ml-2 size-4" />
@@ -296,7 +305,7 @@ export default function HomePage() {
                   asChild 
                   size="lg" 
                   variant="outline" 
-                  className="h-12 border-white/20 bg-white/10 px-8 text-white hover:bg-white/20"
+                  className="h-12 w-full border-white/20 bg-white/10 px-8 text-white hover:bg-white/20 hover:text-white sm:w-auto"
                 >
                   <Link href="/app">
                     <LayoutDashboard className="mr-2 size-4" />
@@ -310,21 +319,21 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[var(--border)] bg-white/50 py-8">
+      <footer className="border-t border-border/70 bg-background/70 py-8 backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-4 md:px-8">
-          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-            <div className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
+          <div className="flex flex-col items-center justify-between gap-4 text-center md:flex-row md:text-left">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <MessageSquareText className="size-4" />
               <span>&copy; 2026 Student Grievance Intelligence. All rights reserved.</span>
             </div>
-            <div className="flex items-center gap-6 text-sm">
-              <Link href="/privacy" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+            <div className="flex flex-wrap items-center justify-center gap-4 text-sm md:justify-end md:gap-6">
+              <Link href="/privacy" className="text-muted-foreground transition-colors hover:text-primary">
                 Privacy Policy
               </Link>
-              <Link href="/terms" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+              <Link href="/terms" className="text-muted-foreground transition-colors hover:text-primary">
                 Terms of Service
               </Link>
-              <Link href="/contact" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+              <Link href="/contact" className="text-muted-foreground transition-colors hover:text-primary">
                 Contact
               </Link>
             </div>

@@ -7,7 +7,11 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.audit_log import AuditLog
 from app.models.department import Department
-from app.models.grievance import Grievance
+from app.models.grievance import (
+    GRIEVANCE_STATUS_IN_PROGRESS,
+    GRIEVANCE_STATUS_OPEN,
+    Grievance,
+)
 from app.models.sla_event import SLAEvent
 from app.models.sla_policy import SLAPolicy
 from app.schemas.sla import SLABreachSummary, SLAPolicyUpsertRequest
@@ -216,7 +220,7 @@ def reset_sla_timers_for_routing(
     )
 
 
-def _latest_pending_deadline_event(
+def _latest_trackable_deadline_event(
     db: Session,
     grievance_id: uuid.UUID,
     event_type: str,
@@ -226,7 +230,7 @@ def _latest_pending_deadline_event(
         .where(
             SLAEvent.grievance_id == grievance_id,
             SLAEvent.event_type == event_type,
-            SLAEvent.status == SLA_STATUS_PENDING,
+            SLAEvent.status.in_([SLA_STATUS_PENDING, SLA_STATUS_BREACHED]),
         )
         .order_by(desc(SLAEvent.created_at))
         .limit(1)
@@ -249,16 +253,24 @@ def mark_first_response_if_needed(
         db.add(grievance)
         changed = True
 
-    event = _latest_pending_deadline_event(
+    event = _latest_trackable_deadline_event(
         db,
         grievance.id,
         SLA_EVENT_FIRST_RESPONSE_DEADLINE,
     )
     if event is not None:
+        was_breached = event.status == SLA_STATUS_BREACHED
         event.status = SLA_STATUS_MET
         event.occurred_at = now
         details = dict(event.details or {})
         details["source"] = source
+        if was_breached:
+            due_at = event.due_at or now
+            details["met_after_breach"] = True
+            details["resolved_breach_minutes"] = max(
+                0,
+                int((now - due_at).total_seconds() // 60),
+            )
         event.details = details
         db.add(event)
         changed = True
@@ -294,16 +306,24 @@ def mark_resolution_if_needed(
         db.add(grievance)
         changed = True
 
-    event = _latest_pending_deadline_event(
+    event = _latest_trackable_deadline_event(
         db,
         grievance.id,
         SLA_EVENT_RESOLUTION_DEADLINE,
     )
     if event is not None:
+        was_breached = event.status == SLA_STATUS_BREACHED
         event.status = SLA_STATUS_MET
         event.occurred_at = now
         details = dict(event.details or {})
         details["source"] = source
+        if was_breached:
+            due_at = event.due_at or now
+            details["met_after_breach"] = True
+            details["resolved_breach_minutes"] = max(
+                0,
+                int((now - due_at).total_seconds() // 60),
+            )
         event.details = details
         db.add(event)
         changed = True
@@ -373,55 +393,85 @@ def evaluate_due_sla_breaches(
 
 def list_active_breaches(db: Session) -> list[SLABreachSummary]:
     now = _utcnow()
-    breach_events = list(
+    active_grievances = list(
         db.scalars(
-            select(SLAEvent)
-            .where(
-                SLAEvent.status == SLA_STATUS_BREACHED,
-                SLAEvent.event_type.in_(
-                    [
-                        SLA_EVENT_FIRST_RESPONSE_DEADLINE,
-                        SLA_EVENT_RESOLUTION_DEADLINE,
-                    ]
-                ),
+            select(Grievance)
+            .options(
+                selectinload(Grievance.student),
+                selectinload(Grievance.assigned_to_user),
+                selectinload(Grievance.department),
             )
-            .order_by(desc(SLAEvent.occurred_at), desc(SLAEvent.created_at))
+            .where(
+                Grievance.status.in_([GRIEVANCE_STATUS_OPEN, GRIEVANCE_STATUS_IN_PROGRESS])
+            )
+            .order_by(Grievance.created_at.asc())
         )
     )
+    grievance_ids = [grievance.id for grievance in active_grievances]
+    snapshot = get_latest_deadline_events_for_grievances(db, grievance_ids)
 
-    summaries: list[SLABreachSummary] = []
-    for event in breach_events:
-        escalation_count = db.scalar(
-            select(func.count())
-            .select_from(SLAEvent)
+    active_breach_events: list[tuple[Grievance, SLAEvent, str]] = []
+    active_breach_event_ids: list[uuid.UUID] = []
+
+    for grievance in active_grievances:
+        grievance_events = snapshot.get(grievance.id, {})
+        for event_type, breach_type in (
+            (SLA_EVENT_FIRST_RESPONSE_DEADLINE, "first_response"),
+            (SLA_EVENT_RESOLUTION_DEADLINE, "resolution"),
+        ):
+            event = grievance_events.get(event_type)
+            if event is None or event.status != SLA_STATUS_BREACHED:
+                continue
+            active_breach_events.append((grievance, event, breach_type))
+            active_breach_event_ids.append(event.id)
+
+    escalation_count_by_parent: dict[uuid.UUID, int] = {}
+    if active_breach_event_ids:
+        rows = db.execute(
+            select(SLAEvent.parent_event_id, func.count())
             .where(
-                SLAEvent.parent_event_id == event.id,
+                SLAEvent.parent_event_id.in_(active_breach_event_ids),
                 SLAEvent.event_type == SLA_EVENT_ESCALATION,
                 SLAEvent.status == SLA_STATUS_TRIGGERED,
             )
-        )
+            .group_by(SLAEvent.parent_event_id)
+        ).all()
+        escalation_count_by_parent = {
+            row[0]: row[1]
+            for row in rows
+            if row[0] is not None
+        }
 
+    summaries: list[SLABreachSummary] = []
+    for grievance, event, breach_type in active_breach_events:
         due_at = event.due_at or event.created_at
         breach_minutes = max(0, int((now - due_at).total_seconds() // 60))
-        breach_type = (
-            "first_response"
-            if event.event_type == SLA_EVENT_FIRST_RESPONSE_DEADLINE
-            else "resolution"
-        )
 
         summaries.append(
             SLABreachSummary(
                 event_id=event.id,
                 grievance_id=event.grievance_id,
+                grievance_title=grievance.title,
+                grievance_status=grievance.status,
                 department_id=event.department_id,
                 breach_type=breach_type,
                 due_at=due_at,
                 occurred_at=event.occurred_at,
                 breach_minutes=breach_minutes,
-                escalation_count=escalation_count or 0,
+                escalation_count=escalation_count_by_parent.get(event.id, 0),
+                student=grievance.student,
+                assigned_to_user=grievance.assigned_to_user,
+                department=grievance.department,
             )
         )
 
+    summaries.sort(
+        key=lambda item: (
+            -item.breach_minutes,
+            item.due_at,
+            item.grievance_title.lower(),
+        )
+    )
     return summaries
 
 

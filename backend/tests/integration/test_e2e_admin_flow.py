@@ -34,7 +34,7 @@ def test_e2e_admin_governance_and_reporting_flow(client, db_session):
     )
     assert assign_role_response.status_code == status.HTTP_200_OK
     assigned_roles = {role["name"] for role in assign_role_response.json()["roles"]}
-    assert {"student", "staff"}.issubset(assigned_roles)
+    assert assigned_roles == {"staff"}
 
     metrics_response = client.get(
         "/health/metrics",

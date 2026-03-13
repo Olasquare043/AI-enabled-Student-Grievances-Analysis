@@ -1,11 +1,12 @@
 ﻿"use client";
 
 import { FormEvent, useState } from "react";
-import { AlertCircle, LoaderCircle, SendHorizonal } from "lucide-react";
+import { LoaderCircle, SendHorizonal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
 import type { GrievanceCreateRequest } from "@/lib/types";
 
 type GrievanceFormProps = {
@@ -24,16 +25,15 @@ const categoryOptions = [
 ];
 
 export function GrievanceForm({ onCreate }: GrievanceFormProps) {
+  const toast = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("ict");
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
 
     const payload: GrievanceCreateRequest = {
       title: title.trim(),
@@ -43,12 +43,12 @@ export function GrievanceForm({ onCreate }: GrievanceFormProps) {
     };
 
     if (payload.title.length < 3) {
-      setError("Title must be at least 3 characters.");
+      toast.error("Submission blocked", "Title must be at least 3 characters.");
       return;
     }
 
     if (payload.description.length < 10) {
-      setError("Description must be at least 10 characters.");
+      toast.error("Submission blocked", "Description must be at least 10 characters.");
       return;
     }
 
@@ -59,10 +59,11 @@ export function GrievanceForm({ onCreate }: GrievanceFormProps) {
       setDescription("");
       setCategory("ict");
       setIsAnonymous(false);
+      toast.success("Grievance submitted", "Your grievance has been created successfully.");
     } catch (submitError) {
       const detail =
         submitError instanceof Error ? submitError.message : "Failed to submit grievance";
-      setError(detail);
+      toast.error("Submission failed", detail);
     } finally {
       setIsSubmitting(false);
     }
@@ -87,7 +88,7 @@ export function GrievanceForm({ onCreate }: GrievanceFormProps) {
         <Label htmlFor="grievance-category">Category</Label>
         <select
           id="grievance-category"
-          className="h-10 w-full rounded-md border border-[var(--border)] bg-white px-3 text-sm"
+          className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
           value={category}
           onChange={(event) => setCategory(event.target.value)}
         >
@@ -103,7 +104,7 @@ export function GrievanceForm({ onCreate }: GrievanceFormProps) {
         <Label htmlFor="grievance-description">Description</Label>
         <textarea
           id="grievance-description"
-          className="min-h-28 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm"
+          className="min-h-28 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
           placeholder="Describe what happened and any timeline details"
           value={description}
           onChange={(event) => setDescription(event.target.value)}
@@ -115,7 +116,7 @@ export function GrievanceForm({ onCreate }: GrievanceFormProps) {
 
       <label
         htmlFor="grievance-anonymous"
-        className="flex items-start gap-3 rounded-md border border-[var(--border)] bg-[var(--surface-tint)]/40 p-3 text-sm"
+        className="flex items-start gap-3 rounded-md border border-border bg-muted/40 p-3 text-sm"
       >
         <input
           id="grievance-anonymous"
@@ -129,13 +130,6 @@ export function GrievanceForm({ onCreate }: GrievanceFormProps) {
           most views).
         </span>
       </label>
-
-      {error ? (
-        <p className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-[var(--danger)]">
-          <AlertCircle className="mt-0.5 size-4 shrink-0" />
-          {error}
-        </p>
-      ) : null}
 
       <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? (

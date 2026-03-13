@@ -14,8 +14,8 @@ export default function PrivacyPage() {
             Back to home
           </Link>
         </Button>
-        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs font-medium text-[var(--muted-foreground)]">
-          <Lock className="size-3.5 text-[var(--primary)]" />
+        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground">
+          <Lock className="size-3.5 text-primary" />
           Privacy commitment
         </div>
       </div>
@@ -23,11 +23,11 @@ export default function PrivacyPage() {
       <Card className="surface-card rounded-2xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
-            <ShieldCheck className="size-6 text-[var(--primary)]" />
+            <ShieldCheck className="size-6 text-primary" />
             Privacy Policy
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 text-sm leading-relaxed text-[var(--muted-foreground)]">
+        <CardContent className="space-y-4 text-sm leading-relaxed text-muted-foreground">
           <p>
             This platform is designed for educational grievance operations and stores only data
             required to authenticate users, manage grievances, and provide operational analytics.

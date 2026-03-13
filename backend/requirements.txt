@@ -1,11 +1,13 @@
 alembic==1.14.1
 argon2-cffi==25.1.0
 fastapi==0.115.8
+fastapi-cache2==0.2.2
 httpx==0.28.1
 PyJWT==2.10.1
 psycopg[binary]==3.2.4
 pydantic-settings==2.7.1
 python-multipart==0.0.20
+redis==5.0.7
 sqlalchemy==2.0.38
 uvicorn[standard]==0.34.0
 email-validator==2.2.0

@@ -1,8 +1,8 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -15,6 +15,10 @@ class Settings(BaseSettings):
 
     database_url: str = Field(..., alias="DATABASE_URL")
     test_database_url: str = Field(..., alias="TEST_DATABASE_URL")
+    cache_backend: Literal["auto", "memory", "redis"] = Field(
+        "auto", alias="CACHE_BACKEND"
+    )
+    redis_url: str = Field("redis://localhost:6379/0", alias="REDIS_URL")
     jwt_secret: str = Field(..., alias="JWT_SECRET")
     jwt_access_token_expire_minutes: int = Field(
         30, alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES"
@@ -28,7 +32,7 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = Field(True, alias="RATE_LIMIT_ENABLED")
     rate_limit_max_requests: int = Field(120, alias="RATE_LIMIT_MAX_REQUESTS")
     rate_limit_window_seconds: int = Field(60, alias="RATE_LIMIT_WINDOW_SECONDS")
-    rate_limit_exempt_paths: list[str] = Field(
+    rate_limit_exempt_paths: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [
             "/health",
             "/openapi.json",
@@ -37,7 +41,7 @@ class Settings(BaseSettings):
         ],
         alias="RATE_LIMIT_EXEMPT_PATHS",
     )
-    cors_origins: list[str] = Field(
+    cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"]
     )
 

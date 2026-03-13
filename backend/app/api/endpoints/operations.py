@@ -235,18 +235,32 @@ def operations_queue_endpoint(
     grievance_ids = [item.id for item in grievances]
     snapshot = get_latest_deadline_events_for_grievances(db, grievance_ids)
 
-    escalation_counts: dict[uuid.UUID, int] = {}
-    if grievance_ids:
+    current_breach_event_ids: list[uuid.UUID] = []
+    for grievance in grievances:
+        grievance_events = snapshot.get(grievance.id, {})
+        first_response_event = grievance_events.get(SLA_EVENT_FIRST_RESPONSE_DEADLINE)
+        resolution_event = grievance_events.get(SLA_EVENT_RESOLUTION_DEADLINE)
+        if first_response_event is not None and first_response_event.status == SLA_STATUS_BREACHED:
+            current_breach_event_ids.append(first_response_event.id)
+        if resolution_event is not None and resolution_event.status == SLA_STATUS_BREACHED:
+            current_breach_event_ids.append(resolution_event.id)
+
+    escalation_counts_by_parent: dict[uuid.UUID, int] = {}
+    if current_breach_event_ids:
         rows = db.execute(
-            select(SLAEvent.grievance_id, func.count(SLAEvent.id))
+            select(SLAEvent.parent_event_id, func.count(SLAEvent.id))
             .where(
-                SLAEvent.grievance_id.in_(grievance_ids),
+                SLAEvent.parent_event_id.in_(current_breach_event_ids),
                 SLAEvent.event_type == SLA_EVENT_ESCALATION,
                 SLAEvent.status == SLA_STATUS_TRIGGERED,
             )
-            .group_by(SLAEvent.grievance_id)
+            .group_by(SLAEvent.parent_event_id)
         ).all()
-        escalation_counts = {row[0]: row[1] for row in rows}
+        escalation_counts_by_parent = {
+            row[0]: row[1]
+            for row in rows
+            if row[0] is not None
+        }
 
     items: list[OperationalGrievanceItem] = []
     for grievance in grievances:
@@ -261,6 +275,12 @@ def operations_queue_endpoint(
             first_response_status == SLA_STATUS_BREACHED
             or resolution_status == SLA_STATUS_BREACHED
         )
+
+        escalation_count = 0
+        if first_response_event is not None and first_response_status == SLA_STATUS_BREACHED:
+            escalation_count += escalation_counts_by_parent.get(first_response_event.id, 0)
+        if resolution_event is not None and resolution_status == SLA_STATUS_BREACHED:
+            escalation_count += escalation_counts_by_parent.get(resolution_event.id, 0)
 
         items.append(
             OperationalGrievanceItem(
@@ -280,7 +300,7 @@ def operations_queue_endpoint(
                     resolution_event.due_at if resolution_event else None
                 ),
                 resolution_status=resolution_status,
-                escalation_count=escalation_counts.get(grievance.id, 0),
+                escalation_count=escalation_count,
                 has_active_breach=has_active_breach,
             )
         )

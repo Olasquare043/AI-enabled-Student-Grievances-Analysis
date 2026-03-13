@@ -395,6 +395,7 @@ class AnalyticsService:
 
         active_breaches = db.scalar(
             select(func.count(func.distinct(SLAEvent.grievance_id))).where(
+                SLAEvent.created_at >= start_at,
                 SLAEvent.event_type.in_(
                     [
                         SLA_EVENT_FIRST_RESPONSE_DEADLINE,

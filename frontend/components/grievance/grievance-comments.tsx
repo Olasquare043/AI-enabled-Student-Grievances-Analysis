@@ -5,6 +5,7 @@ import { LoaderCircle, MessageSquarePlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
 import type { GrievanceCommentRead } from "@/lib/types";
 
 type GrievanceCommentsProps = {
@@ -28,8 +29,8 @@ export function GrievanceComments({
   onAddComment,
   canComment,
 }: GrievanceCommentsProps) {
+  const toast = useToast();
   const [newComment, setNewComment] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const sortedComments = useMemo(
@@ -39,11 +40,10 @@ export function GrievanceComments({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
 
     const body = newComment.trim();
     if (!body) {
-      setError("Comment cannot be empty.");
+      toast.error("Comment blocked", "Comment cannot be empty.");
       return;
     }
 
@@ -51,10 +51,11 @@ export function GrievanceComments({
     try {
       await onAddComment(body);
       setNewComment("");
+      toast.success("Comment posted", "Your comment was added to the grievance.");
     } catch (submitError) {
       const detail =
         submitError instanceof Error ? submitError.message : "Unable to post comment";
-      setError(detail);
+      toast.error("Comment failed", detail);
     } finally {
       setIsSubmitting(false);
     }
@@ -64,19 +65,19 @@ export function GrievanceComments({
     <div className="space-y-4">
       <div className="space-y-3">
         {sortedComments.length === 0 ? (
-          <p className="rounded-md border border-dashed border-[var(--border)] bg-[var(--surface-tint)]/40 px-3 py-4 text-sm text-[var(--muted-foreground)]">
+          <p className="rounded-md border border-dashed border-border bg-muted/40 px-3 py-4 text-sm text-muted-foreground">
             No comments yet.
           </p>
         ) : (
           sortedComments.map((comment) => (
-            <article key={comment.id} className="rounded-lg border border-[var(--border)] bg-white p-3">
+            <article key={comment.id} className="rounded-lg border border-border bg-card p-3">
               <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium text-[var(--foreground)]">{formatAuthor(comment)}</p>
-                <p className="text-xs text-[var(--muted-foreground)]">
+                <p className="text-sm font-medium text-foreground">{formatAuthor(comment)}</p>
+                <p className="text-xs text-muted-foreground">
                   {new Date(comment.created_at).toLocaleString()}
                 </p>
               </div>
-              <p className="text-sm leading-relaxed text-[var(--muted-foreground)]">{comment.body}</p>
+              <p className="text-sm leading-relaxed text-muted-foreground">{comment.body}</p>
             </article>
           ))
         )}
@@ -87,15 +88,12 @@ export function GrievanceComments({
           <Label htmlFor="new-comment">Add comment</Label>
           <textarea
             id="new-comment"
-            className="min-h-24 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm"
+            className="min-h-24 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
             placeholder="Add context, updates, or follow-up questions"
             value={newComment}
             onChange={(event) => setNewComment(event.target.value)}
             maxLength={5000}
           />
-          {error ? (
-            <p className="text-sm text-[var(--danger)]">{error}</p>
-          ) : null}
           <Button type="submit" variant="secondary" disabled={isSubmitting}>
             {isSubmitting ? (
               <>

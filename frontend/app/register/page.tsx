@@ -16,19 +16,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ToastBanner } from "@/components/ui/toast-banner";
+import { useToast } from "@/components/ui/toast";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const toast = useToast();
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [matricNumber, setMatricNumber] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successToast, setSuccessToast] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -50,10 +49,9 @@ export default function RegisterPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      toast.error("Registration failed", "Passwords do not match.");
       return;
     }
 
@@ -71,43 +69,41 @@ export default function RegisterPage() {
         password,
       });
       await loginUser({ email: email.trim(), password });
-      setSuccessToast(`Welcome ${cleanedFirstName}, account created successfully.`);
+      toast.success("Account created", `Welcome ${cleanedFirstName}, your account is ready.`);
       await new Promise((resolve) => setTimeout(resolve, 650));
       router.replace("/app");
     } catch (submitError) {
       const detail =
         submitError instanceof Error ? submitError.message : "Registration failed";
-      setError(detail);
-      setSuccessToast(null);
+      toast.error("Registration failed", detail);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-7xl items-center px-4 py-8 md:px-8">
-      {successToast ? <ToastBanner message={successToast} variant="success" /> : null}
+    <div className="mx-auto flex min-h-screen w-full max-w-7xl items-start px-4 py-6 md:px-8 md:py-8 lg:items-center">
       <div className="grid w-full gap-6 lg:grid-cols-[1.05fr_0.95fr]">
         <Card className="surface-card hidden rounded-2xl border-2 lg:block">
           <CardHeader>
             <CardTitle className="text-2xl">Create your grievance account</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5 text-sm text-[var(--muted-foreground)]">
+          <CardContent className="space-y-5 text-sm text-muted-foreground">
             <p>
               Registration is lightweight and secure. You can complete extra academic profile
               details later inside the dashboard.
             </p>
             <div className="space-y-3">
-              <div className="rounded-xl border border-[var(--border)] bg-white/70 px-4 py-3">
-                <p className="mb-1 flex items-center gap-2 font-medium text-[var(--foreground)]">
-                  <ShieldCheck className="size-4 text-[var(--primary)]" />
+              <div className="rounded-xl border border-border bg-card/70 px-4 py-3">
+                <p className="mb-1 flex items-center gap-2 font-medium text-foreground">
+                  <ShieldCheck className="size-4 text-primary" />
                   Role-safe onboarding
                 </p>
                 <p>New users start as students with protected access boundaries.</p>
               </div>
-              <div className="rounded-xl border border-[var(--border)] bg-white/70 px-4 py-3">
-                <p className="mb-1 flex items-center gap-2 font-medium text-[var(--foreground)]">
-                  <Workflow className="size-4 text-[var(--primary)]" />
+              <div className="rounded-xl border border-border bg-card/70 px-4 py-3">
+                <p className="mb-1 flex items-center gap-2 font-medium text-foreground">
+                  <Workflow className="size-4 text-primary" />
                   Ready for workflow
                 </p>
                 <p>Submit grievances, track status changes, and collaborate through comments.</p>
@@ -119,7 +115,7 @@ export default function RegisterPage() {
         <div className="w-full max-w-xl space-y-3 lg:justify-self-end">
           <Link
             href="/"
-            className="inline-flex items-center gap-1 text-sm font-medium text-[var(--primary)] hover:underline"
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
           >
             <ArrowLeft className="size-4" />
             Back to home
@@ -127,7 +123,7 @@ export default function RegisterPage() {
           <Card className="surface-card w-full rounded-2xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-2xl">
-                <UserRoundPlus className="size-6 text-[var(--primary)]" />
+                <UserRoundPlus className="size-6 text-primary" />
                 Register account
               </CardTitle>
             </CardHeader>
@@ -205,14 +201,6 @@ export default function RegisterPage() {
                     minLength={8}
                   />
                 </div>
-                {error ? (
-                  <p
-                    role="alert"
-                    className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-[var(--danger)]"
-                  >
-                    {error}
-                  </p>
-                ) : null}
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
@@ -223,11 +211,11 @@ export default function RegisterPage() {
                     "Create account"
                   )}
                 </Button>
-                <p className="text-sm text-[var(--muted-foreground)]">
+                <p className="text-sm text-muted-foreground">
                   Already registered?{" "}
                   <Link
                     href="/login"
-                    className="font-medium text-[var(--primary)] hover:underline"
+                    className="font-medium text-primary hover:underline"
                   >
                     Sign in
                   </Link>

@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.grievance import GrievanceDepartmentSummary
+from app.schemas.grievance import GrievanceDepartmentSummary, GrievanceUserSummary
 
 BreachType = Literal["first_response", "resolution"]
 EscalationSeverity = Literal["warning", "critical"]
@@ -80,9 +80,14 @@ class SLAEvaluationResponse(BaseModel):
 class SLABreachSummary(BaseModel):
     event_id: uuid.UUID
     grievance_id: uuid.UUID
+    grievance_title: str
+    grievance_status: str
     department_id: int | None = None
     breach_type: str
     due_at: datetime
     occurred_at: datetime | None = None
     breach_minutes: int
     escalation_count: int
+    student: GrievanceUserSummary
+    assigned_to_user: GrievanceUserSummary | None = None
+    department: GrievanceDepartmentSummary | None = None

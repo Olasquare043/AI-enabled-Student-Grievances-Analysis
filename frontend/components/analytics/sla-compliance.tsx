@@ -13,12 +13,12 @@ type SlaComplianceProps = {
 
 function percentColor(rate: number) {
   if (rate >= 85) {
-    return "text-emerald-700";
+    return "text-emerald-700 dark:text-emerald-300";
   }
   if (rate >= 60) {
-    return "text-amber-700";
+    return "text-amber-700 dark:text-amber-300";
   }
-  return "text-[var(--danger)]";
+  return "text-rose-700 dark:text-rose-300";
 }
 
 export function SlaCompliance({
@@ -30,10 +30,10 @@ export function SlaCompliance({
 }: SlaComplianceProps) {
   return (
     <div className="grid gap-4 xl:grid-cols-2">
-      <Card className="surface-card rounded-2xl">
+      <Card className="surface-card rounded-[2rem]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Gauge className="size-4 text-[var(--primary)]" />
+            <Gauge className="size-4 text-primary" />
             SLA compliance
           </CardTitle>
         </CardHeader>
@@ -43,7 +43,7 @@ export function SlaCompliance({
             return (
               <div
                 key={item.breach_type}
-                className="rounded-md border border-[var(--border)] bg-white px-3 py-3"
+                className="rounded-2xl border border-border/70 bg-background/70 px-3 py-3"
               >
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className="font-medium capitalize">
@@ -51,13 +51,13 @@ export function SlaCompliance({
                   </span>
                   <span className={`font-semibold ${percentColor(rate)}`}>{rate}%</span>
                 </div>
-                <div className="mb-2 h-2 overflow-hidden rounded-full bg-[var(--surface-tint)]">
+                <div className="mb-2 h-2 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)]"
+                    className="h-full rounded-full bg-gradient-to-r from-primary to-accent"
                     style={{ width: `${rate}%` }}
                   />
                 </div>
-                <p className="text-xs text-[var(--muted-foreground)]">
+                <p className="text-xs text-muted-foreground">
                   Met: {item.met_count} | Breached: {item.breached_count}
                 </p>
               </div>
@@ -66,32 +66,32 @@ export function SlaCompliance({
         </CardContent>
       </Card>
 
-      <Card className="surface-card rounded-2xl">
+      <Card className="surface-card rounded-[2rem]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <TimerReset className="size-4 text-[var(--primary)]" />
+            <TimerReset className="size-4 text-primary" />
             Backlog and resolution metrics
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md border border-[var(--border)] bg-white px-3 py-3 text-sm">
-            <p className="text-[var(--muted-foreground)]">Open</p>
+          <div className="rounded-2xl border border-border/70 bg-background/70 px-3 py-3 text-sm">
+            <p className="text-muted-foreground">Open</p>
             <p className="text-xl font-semibold">{backlog.open_count}</p>
           </div>
-          <div className="rounded-md border border-[var(--border)] bg-white px-3 py-3 text-sm">
-            <p className="text-[var(--muted-foreground)]">In progress</p>
+          <div className="rounded-2xl border border-border/70 bg-background/70 px-3 py-3 text-sm">
+            <p className="text-muted-foreground">In progress</p>
             <p className="text-xl font-semibold">{backlog.in_progress_count}</p>
           </div>
-          <div className="rounded-md border border-[var(--border)] bg-white px-3 py-3 text-sm">
-            <p className="text-[var(--muted-foreground)]">Total backlog</p>
+          <div className="rounded-2xl border border-border/70 bg-background/70 px-3 py-3 text-sm">
+            <p className="text-muted-foreground">Total backlog</p>
             <p className="text-xl font-semibold">{backlog.total_backlog}</p>
           </div>
-          <div className="rounded-md border border-[var(--border)] bg-white px-3 py-3 text-sm">
-            <p className="text-[var(--muted-foreground)]">Overdue backlog</p>
-            <p className="text-xl font-semibold text-[var(--danger)]">{backlog.overdue_backlog}</p>
+          <div className="rounded-2xl border border-border/70 bg-background/70 px-3 py-3 text-sm">
+            <p className="text-muted-foreground">Overdue backlog</p>
+            <p className="text-xl font-semibold text-destructive">{backlog.overdue_backlog}</p>
           </div>
-          <div className="rounded-md border border-[var(--border)] bg-white px-3 py-3 text-sm">
-            <p className="text-[var(--muted-foreground)]">Avg resolution</p>
+          <div className="rounded-2xl border border-border/70 bg-background/70 px-3 py-3 text-sm">
+            <p className="text-muted-foreground">Avg resolution</p>
             <p className="text-xl font-semibold">
               {resolution.avg_resolution_hours === null ||
               resolution.avg_resolution_hours === undefined
@@ -99,20 +99,20 @@ export function SlaCompliance({
                 : `${resolution.avg_resolution_hours}h`}
             </p>
           </div>
-          <div className="rounded-md border border-[var(--border)] bg-white px-3 py-3 text-sm">
-            <p className="text-[var(--muted-foreground)]">Resolved in period</p>
+          <div className="rounded-2xl border border-border/70 bg-background/70 px-3 py-3 text-sm">
+            <p className="text-muted-foreground">Resolved in period</p>
             <p className="text-xl font-semibold">{resolution.resolved_count}</p>
           </div>
-          <div className="rounded-md border border-[var(--border)] bg-white px-3 py-3 text-sm">
-            <p className="text-[var(--muted-foreground)]">Escalation events</p>
+          <div className="rounded-2xl border border-border/70 bg-background/70 px-3 py-3 text-sm">
+            <p className="text-muted-foreground">Escalation events</p>
             <p className="text-xl font-semibold">{escalationEvents}</p>
           </div>
-          <div className="rounded-md border border-[var(--border)] bg-white px-3 py-3 text-sm">
-            <p className="flex items-center gap-1 text-[var(--muted-foreground)]">
+          <div className="rounded-2xl border border-border/70 bg-background/70 px-3 py-3 text-sm">
+            <p className="flex items-center gap-1 text-muted-foreground">
               <ShieldAlert className="size-3.5" />
               Active breaches
             </p>
-            <p className="text-xl font-semibold text-[var(--danger)]">{activeBreaches}</p>
+            <p className="text-xl font-semibold text-destructive">{activeBreaches}</p>
           </div>
         </CardContent>
       </Card>

@@ -6,7 +6,6 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.llm.base import NoOpLLMProvider
 from app.models.grievance import Grievance
 from app.nlp.classifier import TfidfLinearClassifier
 from app.nlp.sentiment import SentimentAnalyzer
@@ -32,6 +31,54 @@ _DATE_PATTERN = re.compile(
 _MATRIC_PATTERN = re.compile(r"\b[A-Z]{2,6}/\d{2}/\d{2,6}\b")
 _COURSE_CODE_PATTERN = re.compile(r"\b[A-Z]{3}\d{3}\b")
 _PAYMENT_REF_PATTERN = re.compile(r"\b(?:REF|RRR|PAY)[:\-]?[A-Z0-9]{6,20}\b", re.IGNORECASE)
+
+_STOPWORDS = {
+    "and",
+    "are",
+    "been",
+    "being",
+    "case",
+    "cases",
+    "complaint",
+    "complaints",
+    "current",
+    "days",
+    "during",
+    "for",
+    "from",
+    "grievance",
+    "grievances",
+    "has",
+    "have",
+    "including",
+    "include",
+    "includes",
+    "into",
+    "issue",
+    "issues",
+    "last",
+    "management",
+    "our",
+    "over",
+    "platform",
+    "student",
+    "students",
+    "summary",
+    "that",
+    "the",
+    "their",
+    "them",
+    "they",
+    "this",
+    "through",
+    "total",
+    "was",
+    "were",
+    "window",
+    "with",
+    "within",
+    "your",
+}
 
 _DEPARTMENT_KEYWORDS = {
     "ict": ["internet", "network", "portal", "system", "website", "wifi", "server"],
@@ -74,7 +121,6 @@ class NLPService:
         self.urgency = UrgencyAnalyzer()
         self.clusterer = TopicClusterer()
         self.llm = LLMEnrichmentService()
-        self.noop = NoOpLLMProvider()
 
     def _build_training_samples(self, db: Session) -> tuple[list[str], list[str]]:
         texts: list[str] = []
@@ -116,7 +162,11 @@ class NLPService:
 
     def _extract_baseline_entities(self, text: str) -> dict[str, Any]:
         lowered = text.lower()
-        words = [token.lower() for token in _WORD_PATTERN.findall(lowered) if len(token) > 2]
+        words = [
+            token.lower()
+            for token in _WORD_PATTERN.findall(lowered)
+            if len(token) > 2 and token.lower() not in _STOPWORDS
+        ]
         top_keywords = [token for token, _ in Counter(words).most_common(12)]
 
         departments = [
@@ -155,6 +205,146 @@ class NLPService:
                 merged[key] = value
         return merged
 
+    def _humanize_label(self, value: str) -> str:
+        return value.replace("_", " ").strip()
+
+    def _preview_text(self, text: str, max_chars: int = 220) -> str:
+        normalized = " ".join(text.split())
+        if len(normalized) <= max_chars:
+            return normalized
+        trimmed = normalized[:max_chars].rsplit(" ", 1)[0].strip()
+        return f"{trimmed}..."
+
+    def _format_reason(self, reason: str) -> str:
+        if ":" not in reason:
+            return reason.replace("_", " ")
+
+        kind, value = reason.split(":", 1)
+        readable_value = value.replace("_", " ")
+        if kind == "keyword":
+            return f"the text explicitly mentions '{readable_value}'"
+        if kind == "impact":
+            return f"the issue appears to affect '{readable_value}'"
+        return readable_value
+
+    def _build_signal_sentence(self, entities: dict[str, Any]) -> str:
+        signals: list[str] = []
+
+        departments = entities.get("departments")
+        if isinstance(departments, list) and departments:
+            top_departments = ", ".join(
+                self._humanize_label(str(item)) for item in departments[:3]
+            )
+            signals.append(f"Likely touchpoints: {top_departments}.")
+
+        topics = entities.get("topics")
+        if isinstance(topics, list) and topics:
+            top_topics = ", ".join(str(item) for item in topics[:4])
+            signals.append(f"Relevant topics: {top_topics}.")
+
+        keywords = entities.get("keywords")
+        if isinstance(keywords, list) and keywords:
+            top_keywords = ", ".join(str(item) for item in keywords[:4])
+            signals.append(f"Recurring keywords: {top_keywords}.")
+
+        payment_references = entities.get("payment_references")
+        if isinstance(payment_references, list) and payment_references:
+            signals.append("A payment reference is present.")
+
+        course_codes = entities.get("course_codes")
+        if isinstance(course_codes, list) and course_codes:
+            signals.append(
+                f"Course codes mentioned: {', '.join(str(item) for item in course_codes[:3])}."
+            )
+
+        dates = entities.get("dates")
+        if isinstance(dates, list) and dates:
+            signals.append("The complaint includes date or deadline references.")
+
+        if not signals:
+            return ""
+
+        return " ".join(signals)
+
+    def _build_detailed_summary(
+        self,
+        text: str,
+        *,
+        category_label: str,
+        category_confidence: float,
+        sentiment_label: str,
+        urgency_label: str,
+        urgency_reasons: list[str],
+        entities: dict[str, Any],
+    ) -> str:
+        issue_sentence = f"Reported issue: {self._preview_text(text)}."
+        classification_sentence = (
+            f"The complaint is most strongly associated with {self._humanize_label(category_label)} "
+            f"with {round(category_confidence * 100)}% confidence, and the overall tone appears "
+            f"{self._humanize_label(sentiment_label)}."
+        )
+
+        if urgency_reasons:
+            reason_summary = "; ".join(
+                self._format_reason(reason) for reason in urgency_reasons[:3]
+            )
+            urgency_sentence = (
+                f"Urgency is assessed as {self._humanize_label(urgency_label)} because {reason_summary}."
+            )
+        else:
+            urgency_sentence = (
+                f"Urgency is assessed as {self._humanize_label(urgency_label)} based on the grievance wording."
+            )
+
+        signal_sentence = self._build_signal_sentence(entities)
+
+        return " ".join(
+            sentence
+            for sentence in [
+                issue_sentence,
+                classification_sentence,
+                urgency_sentence,
+                signal_sentence,
+            ]
+            if sentence
+        )
+
+    def _merge_llm_summary(
+        self,
+        llm_summary: str,
+        *,
+        category_label: str,
+        category_confidence: float,
+        sentiment_label: str,
+        urgency_label: str,
+        entities: dict[str, Any],
+    ) -> str:
+        normalized = " ".join(llm_summary.split()).strip()
+        if not normalized:
+            return self._build_detailed_summary(
+                llm_summary,
+                category_label=category_label,
+                category_confidence=category_confidence,
+                sentiment_label=sentiment_label,
+                urgency_label=urgency_label,
+                urgency_reasons=[],
+                entities=entities,
+            )
+
+        if normalized[-1] not in ".!?":
+            normalized = f"{normalized}."
+
+        context_sentence = (
+            f"Current NLP classification points to {self._humanize_label(category_label)} "
+            f"with {round(category_confidence * 100)}% confidence, {self._humanize_label(urgency_label)} urgency, "
+            f"and {self._humanize_label(sentiment_label)} sentiment."
+        )
+        signal_sentence = self._build_signal_sentence(entities)
+
+        return " ".join(
+            sentence for sentence in [normalized, context_sentence, signal_sentence] if sentence
+        )
+
     def analyze_text(
         self,
         db: Session,
@@ -171,18 +361,32 @@ class NLPService:
 
         sentiment = self.sentiment.analyze(cleaned_text)
         urgency = self.urgency.analyze(cleaned_text)
-        summary = self.noop.summarize(cleaned_text)
-
         entities = self._extract_baseline_entities(cleaned_text)
+        summary = self._build_detailed_summary(
+            cleaned_text,
+            category_label=category_prediction.label,
+            category_confidence=category_prediction.confidence,
+            sentiment_label=sentiment.label,
+            urgency_label=urgency.label,
+            urgency_reasons=urgency.reasons,
+            entities=entities,
+        )
         provider_name = "none"
 
         if include_llm_enrichment:
             provider_name = self.llm.provider_name
             llm_summary, llm_entities = self.llm.enrich_text(cleaned_text)
-            if llm_summary:
-                summary = llm_summary
             if llm_entities:
                 entities = self._merge_entities(entities, llm_entities)
+            if provider_name != "none" and llm_summary:
+                summary = self._merge_llm_summary(
+                    llm_summary,
+                    category_label=category_prediction.label,
+                    category_confidence=category_prediction.confidence,
+                    sentiment_label=sentiment.label,
+                    urgency_label=urgency.label,
+                    entities=entities,
+                )
 
         return NLPTextAnalysisResponse(
             provider=provider_name,
