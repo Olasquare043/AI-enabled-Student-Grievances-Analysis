@@ -22,6 +22,7 @@ frontend/.env
 # Local artifacts
 backend/backups/
 frontend/.artifacts/
+tmp-build-*.log
 
 # OS files
 Thumbs.db
