@@ -27,6 +27,6 @@ export async function ensureTypeStub() {
   }
 }
 
-if (import.meta.url === `file://${__filename}`) {
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
   await ensureTypeStub();
 }

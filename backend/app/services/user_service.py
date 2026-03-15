@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.security import get_password_hash
+from app.models.department import Department
 from app.models.grievance import Grievance
 from app.models.role import Role
 from app.models.user import User
@@ -48,6 +49,65 @@ def get_primary_role(user: User) -> Role | None:
     return max(user.roles, key=lambda role: ROLE_PRIORITY.get(role.name, -1))
 
 
+def _role_names(user: User) -> set[str]:
+    return {role.name for role in user.roles}
+
+
+def _normalize_department_lookup(value: str | None) -> tuple[str, str]:
+    normalized_name = " ".join((value or "").strip().lower().split())
+    normalized_code = "".join((value or "").strip().upper().split())
+    return normalized_name, normalized_code
+
+
+def _resolve_operational_department(db: Session, value: str | None) -> Department | None:
+    normalized_name, normalized_code = _normalize_department_lookup(value)
+    if not normalized_name and not normalized_code:
+        return None
+
+    departments = db.scalars(
+        select(Department).where(Department.is_active.is_(True)).order_by(Department.name.asc())
+    ).all()
+    for department in departments:
+        department_name, department_code = _normalize_department_lookup(
+            department.name or department.code
+        )
+        if normalized_code and normalized_code == department_code:
+            return department
+        if normalized_name and (
+            normalized_name == department_name
+            or normalized_name in department_name
+            or department_name in normalized_name
+        ):
+            return department
+    return None
+
+
+def normalize_department_for_role(
+    db: Session,
+    *,
+    role_name: str,
+    department: str | None,
+) -> str | None:
+    cleaned = department.strip() if department else None
+
+    if role_name == ROLE_STAFF:
+        if not cleaned:
+            raise ValueError("Staff accounts must have an operational department")
+
+        matched_department = _resolve_operational_department(db, cleaned)
+        if matched_department is None:
+            raise ValueError("Choose a valid active operational department for staff accounts")
+        return matched_department.name
+
+    if not cleaned:
+        return None
+
+    matched_department = _resolve_operational_department(db, cleaned)
+    if matched_department is not None:
+        return matched_department.name
+    return cleaned
+
+
 def get_user_by_id(db: Session, user_id: uuid.UUID) -> User | None:
     return db.scalar(
         select(User)
@@ -82,6 +142,53 @@ def list_users(db: Session) -> list[User]:
     )
 
 
+def list_assignable_operational_users(
+    db: Session,
+    *,
+    department_id: int | None = None,
+) -> list[User]:
+    users = list(
+        db.scalars(
+            select(User)
+            .options(selectinload(User.roles))
+            .where(User.is_active.is_(True))
+            .order_by(User.first_name.asc(), User.last_name.asc(), User.email.asc())
+        )
+    )
+    operational_users = [
+        user
+        for user in users
+        if _role_names(user).intersection({ROLE_STAFF, ROLE_ADMIN})
+    ]
+
+    if department_id is None:
+        return operational_users
+
+    department = db.get(Department, department_id)
+    if department is None or not department.is_active:
+        raise ValueError("Department not found")
+
+    department_name, department_code = _normalize_department_lookup(
+        department.name or department.code
+    )
+    filtered_users: list[User] = []
+    for user in operational_users:
+        user_name, user_code = _normalize_department_lookup(user.department)
+        if not user_name and not user_code:
+            continue
+        if user_code and user_code == department_code:
+            filtered_users.append(user)
+            continue
+        if user_name and (
+            user_name == department_name
+            or user_name in department_name
+            or department_name in user_name
+        ):
+            filtered_users.append(user)
+
+    return filtered_users
+
+
 def create_user(db: Session, payload: AdminUserCreateRequest) -> User:
     normalized_email = payload.email.lower()
     if get_user_by_email(db, normalized_email) is not None:
@@ -104,7 +211,11 @@ def create_user(db: Session, payload: AdminUserCreateRequest) -> User:
         matric_number=normalized_matric_number,
         phone_number=payload.phone_number.strip() if payload.phone_number else None,
         faculty=payload.faculty.strip() if payload.faculty else None,
-        department=payload.department.strip() if payload.department else None,
+        department=normalize_department_for_role(
+            db,
+            role_name=payload.role_name,
+            department=payload.department,
+        ),
         level=payload.level.strip() if payload.level else None,
         is_active=True,
     )
@@ -144,7 +255,11 @@ def update_user(db: Session, user_id: uuid.UUID, payload: AdminUserUpdateRequest
     user.matric_number = normalized_matric_number
     user.phone_number = payload.phone_number.strip() if payload.phone_number else None
     user.faculty = payload.faculty.strip() if payload.faculty else None
-    user.department = payload.department.strip() if payload.department else None
+    user.department = normalize_department_for_role(
+        db,
+        role_name=payload.role_name,
+        department=payload.department,
+    )
     user.level = payload.level.strip() if payload.level else None
     user.is_active = payload.is_active
     user.roles = [role]
@@ -253,6 +368,12 @@ def update_user_profile(
             raise ValueError("Matric number is already assigned to another user")
 
     for key, value in normalized.items():
+        if key == "department" and ROLE_STAFF in _role_names(user):
+            value = normalize_department_for_role(
+                db,
+                role_name=ROLE_STAFF,
+                department=value,
+            )
         setattr(user, key, value)
 
     db.add(user)

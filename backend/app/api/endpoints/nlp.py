@@ -71,7 +71,7 @@ def analyze_grievance_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grievance not found")
 
     try:
-        ensure_can_access_grievance(current_user, grievance)
+        ensure_can_access_grievance(db, current_user, grievance)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 

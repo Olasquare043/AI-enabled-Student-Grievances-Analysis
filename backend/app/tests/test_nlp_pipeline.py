@@ -85,6 +85,21 @@ def test_nlp_analysis_pipeline_returns_baseline_outputs(client, db_session):
 
 
 def test_nlp_grievance_analysis_and_topic_clustering(client, db_session):
+    admin = register_and_login(
+        client,
+        email="cluster.admin@example.com",
+        first_name="Cluster",
+        last_name="Admin",
+        matric_number="ADM/26/1000",
+    )
+    assign_role(db_session, uuid.UUID(admin["id"]), "admin")
+    admin_login = client.post(
+        "/auth/login",
+        json={"email": "cluster.admin@example.com", "password": "StrongPass123!"},
+    )
+    assert admin_login.status_code == 200
+    admin_token = admin_login.json()["access_token"]
+
     staff = register_and_login(
         client,
         email="cluster.staff@example.com",
@@ -129,6 +144,22 @@ def test_nlp_grievance_analysis_and_topic_clustering(client, db_session):
         )
         assert create_response.status_code == 201
         created_ids.append(create_response.json()["id"])
+
+    departments_response = client.get(
+        "/operations/departments?active_only=true",
+        headers=auth_headers(admin_token),
+    )
+    assert departments_response.status_code == 200
+    bursary_department_id = next(
+        item["id"] for item in departments_response.json() if item["code"] == "BURSARY"
+    )
+
+    route_response = client.post(
+        f"/operations/grievances/{created_ids[0]}/route",
+        json={"department_id": bursary_department_id, "assignee_user_id": staff["id"]},
+        headers=auth_headers(admin_token),
+    )
+    assert route_response.status_code == 200
 
     analyze_response = client.post(
         f"/nlp/grievances/{created_ids[0]}/analyze",

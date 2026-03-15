@@ -99,7 +99,7 @@ def get_grievance_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grievance not found")
 
     try:
-        ensure_can_access_grievance(current_user, grievance)
+        ensure_can_access_grievance(db, current_user, grievance)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
@@ -122,7 +122,7 @@ def add_grievance_comment_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grievance not found")
 
     try:
-        ensure_can_access_grievance(current_user, grievance)
+        ensure_can_access_grievance(db, current_user, grievance)
         comment = add_grievance_comment(db, grievance, current_user, payload.body)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
@@ -143,7 +143,7 @@ def list_grievance_comments_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grievance not found")
 
     try:
-        ensure_can_access_grievance(current_user, grievance)
+        ensure_can_access_grievance(db, current_user, grievance)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 

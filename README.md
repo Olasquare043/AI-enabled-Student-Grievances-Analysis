@@ -11,11 +11,12 @@ This repository contains:
 
 - Student grievance submission and tracking
 - Staff and admin triage workflow
-- Routing to operational departments
+- Routing to operational departments and staff assignment
 - SLA policy management and breach detection
 - Analytics for backlog, trends, hotspots, and compliance
 - Optional LLM enrichment with deterministic fallback
 - Admin user management and CSV grievance import
+- Public registration for students only; staff and admin accounts are provisioned by admins
 
 ## Tech Stack
 
@@ -64,17 +65,17 @@ scripts/
   release_smoke.ps1
 ```
 
-## Fresh Setup On A New Device
+## Quick Start (Beginner Friendly)
 
-These steps assume the repository has already been cloned.
+These steps assume the repository has already been cloned. Run them from the repo root.
 
-### 1. Install Required Tooling
+### 1. Install Requirements
 
 - Git
-- Python 3.12 or newer
-- Node.js 22 or newer
+- Python 3.12+
+- Node.js 22+
 - npm
-- PostgreSQL 15 or newer
+- PostgreSQL 15+
 - Optional: Redis
 
 ### 2. Create Environment Files
@@ -84,7 +85,75 @@ Copy-Item backend\.env.example backend\.env
 Copy-Item frontend\.env.example frontend\.env.local
 ```
 
-### 3. Configure The Backend Environment
+### 3. Create Databases
+
+```powershell
+createdb grievance
+createdb grievance_test
+```
+
+If `createdb` is not available:
+
+```powershell
+psql -U postgres -c "CREATE DATABASE grievance;"
+psql -U postgres -c "CREATE DATABASE grievance_test;"
+```
+
+### 4. Install Dependencies
+
+Backend:
+
+```powershell
+python -m venv backend\.venv
+backend\.venv\Scripts\python.exe -m pip install --upgrade pip
+backend\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.txt
+```
+
+Frontend:
+
+```powershell
+cd frontend
+npm install
+cd ..
+```
+
+### 5. Run Migrations + Seed Demo Data
+
+```powershell
+.\scripts\tasks.ps1 backend:migrate
+.\scripts\tasks.ps1 backend:seed
+```
+
+### 6. Start The App
+
+```powershell
+.\scripts\tasks.ps1 backend:dev
+.\scripts\tasks.ps1 frontend:dev
+```
+
+Open:
+
+- `http://127.0.0.1:3000` (frontend)
+- `http://127.0.0.1:8000/health` (backend health check)
+
+## Onboarding Checklist
+
+Use this as a quick “did I wire everything correctly?” list after a fresh clone.
+
+- Dependencies installed: Python, Node, PostgreSQL, npm
+- Environment files created: `backend/.env` and `frontend/.env.local`
+- Databases created: `grievance` and `grievance_test`
+- Backend deps installed: `backend\.venv` created and requirements installed
+- Frontend deps installed: `npm install` completed
+- Migrations applied: `.\scripts\tasks.ps1 backend:migrate`
+- Demo data seeded: `.\scripts\tasks.ps1 backend:seed`
+- Backend running: `http://127.0.0.1:8000/health` returns `ok`
+- Frontend running: `http://127.0.0.1:3000` loads the landing page
+- Demo logins work (admin + student accounts below)
+
+## Full Setup (Detailed)
+
+### 1. Configure The Backend Environment
 
 Open `backend/.env` and set values for your own machine.
 
@@ -115,7 +184,7 @@ Notes:
 - `CACHE_BACKEND=auto` is the recommended default.
 - Leave `LLM_PROVIDER=none` unless you are intentionally enabling Groq.
 
-### 4. Configure The Frontend Environment
+### 2. Configure The Frontend Environment
 
 `frontend/.env.local`
 
@@ -123,47 +192,13 @@ Notes:
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-### 5. Create The Databases
-
-If the databases do not already exist, create them:
-
-```powershell
-createdb grievance
-createdb grievance_test
-```
-
-If `createdb` is not available on `PATH`, use `psql`:
-
-```powershell
-psql -U postgres -c "CREATE DATABASE grievance;"
-psql -U postgres -c "CREATE DATABASE grievance_test;"
-```
-
-### 6. Install Dependencies
-
-Backend:
-
-```powershell
-python -m venv backend\.venv
-backend\.venv\Scripts\python.exe -m pip install --upgrade pip
-backend\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.txt
-```
-
-Frontend:
-
-```powershell
-cd frontend
-npm install
-cd ..
-```
-
-### 7. Run Database Migrations
+### 3. Run Database Migrations
 
 ```powershell
 .\scripts\tasks.ps1 backend:migrate
 ```
 
-### 8. Seed Fresh Demo Data
+### 4. Seed Fresh Demo Data
 
 This reseeds the development database with realistic demo records for all dashboards.
 
@@ -185,7 +220,7 @@ Important:
 - It refuses to run against the test database.
 - It resets users, grievances, routing history, SLA events, and reference data, then rebuilds the demo dataset.
 
-### 9. Start The Application
+### 5. Start The Application
 
 Backend:
 
@@ -240,7 +275,7 @@ Note: the requested `ola2gmail.com` seed login was normalized to the valid email
 
 | Role | Name | Email | Staff ID | Unit |
 | --- | --- | --- | --- | --- |
-| staff | Grace Adebayo | `grace.adebayo@campuspulse.edu.ng` | `STF/OPS/0001` | Registry Operations |
+| staff | Grace Adebayo | `grace.adebayo@campuspulse.edu.ng` | `STF/OPS/0001` | Registry |
 | staff | Martins Okafor | `martins.okafor@campuspulse.edu.ng` | `STF/OPS/0002` | ICT Support |
 
 The seeded grievance history spans 7, 30, and 90 day reporting windows so the dashboard period filters, charts, SLA views, category distribution, hotspots, and operational queues all have meaningful data.
@@ -274,21 +309,12 @@ On Windows, run `frontend:build` in a fresh PowerShell session after `release:sm
 
 ### Optional QA Walkthrough
 
-The optional browser walkthrough at `scripts/qa_walkthrough.mjs` now uses the seeded demo accounts by default:
+The optional browser walkthrough at `scripts/qa_walkthrough.mjs` now uses the seeded demo accounts by default.
 
 This script is not part of the normal build/test pipeline and expects `playwright` to be installed in your Node environment before you run it.
 
 - Student: `ola2@gmail.com` / `password123`
 - Admin: `admin@gmail.com` / `password123`
-
-Override them only if you are testing against a different dataset:
-
-```powershell
-$env:QA_STUDENT_EMAIL="custom.student@example.com"
-$env:QA_STUDENT_PASSWORD="StrongPass123!"
-$env:QA_ADMIN_EMAIL="custom.admin@example.com"
-$env:QA_ADMIN_PASSWORD="StrongPass123!"
-```
 
 ## Feature Areas
 
@@ -410,9 +436,28 @@ That is expected if the user has already submitted grievances. Those records are
 Use one of these instead:
 
 - mark the account inactive from the edit modal
-- remove the user’s grievance records first if you truly want a hard delete
+- remove the user's grievance records first if you truly want a hard delete
 
-### 6. Frontend build fails on Windows after several other frontend commands
+### 6. `ModuleNotFoundError: No module named 'app'`
+
+Cause:
+
+- `uvicorn app.main:app` was run from the wrong directory
+
+Fix:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```
+
+Or from the repo root:
+
+```powershell
+backend\.venv\Scripts\python.exe -m uvicorn --app-dir backend app.main:app --reload
+```
+
+### 7. Frontend build fails on Windows after several other frontend commands
 
 Run the production build in a fresh PowerShell session:
 
@@ -420,7 +465,7 @@ Run the production build in a fresh PowerShell session:
 .\scripts\tasks.ps1 frontend:build
 ```
 
-### 7. Hydration mismatch warnings appear in development
+### 8. Hydration mismatch warnings appear in development
 
 Common cause:
 

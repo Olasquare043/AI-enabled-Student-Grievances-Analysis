@@ -156,7 +156,7 @@ export function useWorkspaceData(
 
       try {
         const requestResults = (await Promise.allSettled([
-          listGrievances({ mine: true }),
+          listGrievances(hasOperationalRole ? undefined : { mine: true }),
           hasOperationalRole ? getNlpProviderStatus() : Promise.resolve(null),
           hasOperationalRole ? getAnalyticsOverview(periodDays) : Promise.resolve(null),
           hasOperationalRole ? getAnalyticsTopicClusters(periodDays) : Promise.resolve(null),

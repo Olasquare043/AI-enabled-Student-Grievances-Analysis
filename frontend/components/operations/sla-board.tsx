@@ -34,15 +34,21 @@ import type {
   SLAEvaluationResponse,
   SLAPolicyRead,
   SLAPolicyUpsertRequest,
+  UserRead,
 } from "@/lib/types";
 
 type SlaBoardProps = {
   queue: OperationalGrievanceItem[];
   breaches: SLABreachSummary[];
   departments: DepartmentRead[];
+  assignableUsers: UserRead[];
   policies: SLAPolicyRead[];
   canManagePolicies: boolean;
-  onRoute: (grievanceId: string, departmentId: number) => Promise<void>;
+  onRoute: (
+    grievanceId: string,
+    departmentId: number,
+    assigneeUserId?: string,
+  ) => Promise<void>;
   onEvaluate: () => Promise<void>;
   onUpdatePolicy: (
     departmentId: number,
@@ -68,6 +74,10 @@ type TableState = {
   sort: SortState;
   page: number;
   pageSize: number;
+};
+type RouteDraft = {
+  departmentId: number;
+  assigneeUserId: string;
 };
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
@@ -128,6 +138,19 @@ function resolveUserLabel(
 
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
   return fullName || user.email;
+}
+
+function normalizeDepartmentLookup(value: string | null | undefined) {
+  return {
+    name: (value ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " "),
+    code: (value ?? "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, ""),
+  };
 }
 
 function statusBadgeTone(status: string | null | undefined) {
@@ -314,6 +337,7 @@ export function SlaBoard({
   queue,
   breaches,
   departments,
+  assignableUsers,
   policies,
   canManagePolicies,
   onRoute,
@@ -323,7 +347,7 @@ export function SlaBoard({
   isEvaluating,
   lastEvaluation,
 }: SlaBoardProps) {
-  const [routeState, setRouteState] = useState<Record<string, number>>({});
+  const [routeState, setRouteState] = useState<Record<string, RouteDraft>>({});
   const [routeBusyId, setRouteBusyId] = useState<string | null>(null);
   const [policyBusyDepartmentId, setPolicyBusyDepartmentId] = useState<number | null>(null);
   const [policyEdits, setPolicyEdits] = useState<
@@ -379,19 +403,59 @@ export function SlaBoard({
 
   const escalatedCount = breaches.filter((item) => item.escalation_count > 0).length;
 
-  const resolveDepartmentForRow = (row: OperationalGrievanceItem) => {
+  const assignableUsersByDepartmentId = useMemo(() => {
+    const entries = departments.map((department) => {
+      const departmentLookup = normalizeDepartmentLookup(department.name || department.code);
+      const matchingUsers = assignableUsers.filter((user) => {
+        const userLookup = normalizeDepartmentLookup(user.department);
+        if (!userLookup.name && !userLookup.code) {
+          return false;
+        }
+        return (
+          userLookup.code === departmentLookup.code ||
+          userLookup.name === departmentLookup.name ||
+          userLookup.name.includes(departmentLookup.name) ||
+          departmentLookup.name.includes(userLookup.name)
+        );
+      });
+      return [department.id, matchingUsers] as const;
+    });
+
+    return new Map<number, UserRead[]>(entries);
+  }, [assignableUsers, departments]);
+
+  const resolveRouteDraft = (row: OperationalGrievanceItem): RouteDraft => {
     const fromState = routeState[row.id];
     if (fromState) return fromState;
-    if (row.department?.id) return row.department.id;
-    return departments[0]?.id ?? 0;
+    return {
+      departmentId: row.department?.id ?? departments[0]?.id ?? 0,
+      assigneeUserId: row.assigned_to_user?.id ?? "",
+    };
+  };
+
+  const updateRouteDraft = (grievanceId: string, next: Partial<RouteDraft>) => {
+    setRouteState((current) => {
+      const existing = current[grievanceId] ?? {
+        departmentId: departments[0]?.id ?? 0,
+        assigneeUserId: "",
+      };
+      return {
+        ...current,
+        [grievanceId]: {
+          ...existing,
+          ...next,
+        },
+      };
+    });
   };
 
   const handleRoute = async (grievanceId: string) => {
-    const departmentId = routeState[grievanceId] ?? 0;
+    const draft = routeState[grievanceId];
+    const departmentId = draft?.departmentId ?? 0;
     if (!departmentId) return;
     setRouteBusyId(grievanceId);
     try {
-      await onRoute(grievanceId, departmentId);
+      await onRoute(grievanceId, departmentId, draft?.assigneeUserId || undefined);
     } finally {
       setRouteBusyId(null);
     }
@@ -579,7 +643,9 @@ export function SlaBoard({
             <tbody>
               {rows.length > 0 ? (
                 rows.map((item) => {
-                  const departmentValue = resolveDepartmentForRow(item);
+                  const routeDraft = resolveRouteDraft(item);
+                  const departmentValue = routeDraft.departmentId;
+                  const assigneeOptions = assignableUsersByDepartmentId.get(departmentValue) ?? [];
                   const isBusy = routeBusyId === item.id || isRefreshing || isEvaluating;
                   const ownerLabel = resolveUserLabel(item.assigned_to_user);
                   return (
@@ -721,12 +787,20 @@ export function SlaBoard({
                           <div className="relative">
                             <select
                               value={departmentValue}
-                              onChange={(event) =>
-                                setRouteState((current) => ({
-                                  ...current,
-                                  [item.id]: Number(event.target.value),
-                                }))
-                              }
+                              onChange={(event) => {
+                                const nextDepartmentId = Number(event.target.value);
+                                const nextAssignees =
+                                  assignableUsersByDepartmentId.get(nextDepartmentId) ?? [];
+                                const nextAssigneeUserId = nextAssignees.some(
+                                  (user) => user.id === routeDraft.assigneeUserId,
+                                )
+                                  ? routeDraft.assigneeUserId
+                                  : "";
+                                updateRouteDraft(item.id, {
+                                  departmentId: nextDepartmentId,
+                                  assigneeUserId: nextAssigneeUserId,
+                                });
+                              }}
                               className="h-10 w-full appearance-none rounded-xl border border-border/80 bg-background/90 px-3 pr-8 text-xs font-semibold uppercase tracking-[0.14em] text-foreground shadow-sm"
                             >
                               {departments.map((department) => (
@@ -737,6 +811,31 @@ export function SlaBoard({
                             </select>
                             <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                           </div>
+                          <div className="relative">
+                            <select
+                              value={routeDraft.assigneeUserId}
+                              onChange={(event) =>
+                                updateRouteDraft(item.id, {
+                                  assigneeUserId: event.target.value,
+                                })
+                              }
+                              className="h-10 w-full appearance-none rounded-xl border border-border/80 bg-background/90 px-3 pr-8 text-xs font-medium text-foreground shadow-sm"
+                            >
+                              <option value="">Unassigned</option>
+                              {assigneeOptions.map((user) => (
+                                <option key={user.id} value={user.id}>
+                                  {resolveUserLabel(user)}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                          </div>
+                          {assigneeOptions.length === 0 ? (
+                            <p className="text-[11px] leading-5 text-muted-foreground">
+                              No staff account is mapped to this department yet. You can still route
+                              the case and assign later.
+                            </p>
+                          ) : null}
                           <Button
                             size="sm"
                             className="w-full rounded-xl bg-primary text-primary-foreground shadow-[0_14px_32px_rgba(14,165,233,0.22)] hover:bg-primary/92"
@@ -777,7 +876,9 @@ export function SlaBoard({
         <div className="space-y-4 p-4 md:hidden">
           {rows.length > 0 ? (
             rows.map((item) => {
-              const departmentValue = resolveDepartmentForRow(item);
+              const routeDraft = resolveRouteDraft(item);
+              const departmentValue = routeDraft.departmentId;
+              const assigneeOptions = assignableUsersByDepartmentId.get(departmentValue) ?? [];
               const isBusy = routeBusyId === item.id || isRefreshing || isEvaluating;
               return (
                 <div
@@ -834,12 +935,20 @@ export function SlaBoard({
                     <div className="relative">
                       <select
                         value={departmentValue}
-                        onChange={(event) =>
-                          setRouteState((current) => ({
-                            ...current,
-                            [item.id]: Number(event.target.value),
-                          }))
-                        }
+                        onChange={(event) => {
+                          const nextDepartmentId = Number(event.target.value);
+                          const nextAssignees =
+                            assignableUsersByDepartmentId.get(nextDepartmentId) ?? [];
+                          const nextAssigneeUserId = nextAssignees.some(
+                            (user) => user.id === routeDraft.assigneeUserId,
+                          )
+                            ? routeDraft.assigneeUserId
+                            : "";
+                          updateRouteDraft(item.id, {
+                            departmentId: nextDepartmentId,
+                            assigneeUserId: nextAssigneeUserId,
+                          });
+                        }}
                         className="h-10 w-full appearance-none rounded-xl border border-border bg-background px-3 pr-8 text-sm text-foreground"
                       >
                         {departments.map((department) => (
@@ -850,6 +959,30 @@ export function SlaBoard({
                       </select>
                       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     </div>
+                    <div className="relative">
+                      <select
+                        value={routeDraft.assigneeUserId}
+                        onChange={(event) =>
+                          updateRouteDraft(item.id, {
+                            assigneeUserId: event.target.value,
+                          })
+                        }
+                        className="h-10 w-full appearance-none rounded-xl border border-border bg-background px-3 pr-8 text-sm text-foreground"
+                      >
+                        <option value="">Unassigned</option>
+                        {assigneeOptions.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {resolveUserLabel(user)}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                    {assigneeOptions.length === 0 ? (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        No staff account is mapped to this department yet.
+                      </p>
+                    ) : null}
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <Button
                         className="bg-primary text-primary-foreground shadow-[0_16px_40px_rgba(14,165,233,0.2)] hover:bg-primary/92"

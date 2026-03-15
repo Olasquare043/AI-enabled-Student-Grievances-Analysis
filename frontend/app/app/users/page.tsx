@@ -36,12 +36,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { listDepartments } from "@/lib/operations-api";
 import { getPrimaryRole } from "@/lib/roles";
 import { assignUserRole, createUser, deleteUser, listUsers, updateUser } from "@/lib/user-api";
 import { cn } from "@/lib/utils";
 import type {
   AdminUserCreateRequest,
   AdminUserUpdateRequest,
+  DepartmentRead,
   RoleName,
   UserRead,
 } from "@/lib/types";
@@ -224,6 +226,7 @@ export default function WorkspaceUsersPage() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [departments, setDepartments] = useState<DepartmentRead[]>([]);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -260,8 +263,12 @@ export default function WorkspaceUsersPage() {
       setIsLoading(true);
     }
     try {
-      const records = await listUsers();
+      const [records, activeDepartments] = await Promise.all([
+        listUsers(),
+        listDepartments(true),
+      ]);
       setUsers(records);
+      setDepartments(activeDepartments);
       setDraftRoles(Object.fromEntries(records.map((user) => [user.id, resolvePrimaryRole(user)])));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load users";
@@ -786,10 +793,25 @@ export default function WorkspaceUsersPage() {
       </div>
 
       {isCreateModalOpen ? (
-        <UserCreateModal open={isCreateModalOpen} isSubmitting={isCreatingUser} onOpenChange={setIsCreateModalOpen} onSubmit={handleCreateUser} />
+        <UserCreateModal
+          open={isCreateModalOpen}
+          isSubmitting={isCreatingUser}
+          departments={departments}
+          onOpenChange={setIsCreateModalOpen}
+          onSubmit={handleCreateUser}
+        />
       ) : null}
       {editingUser ? (
-        <UserEditModal open isSubmitting={isUpdatingUser} user={editingUser} onOpenChange={(open) => { if (!open) setEditingUser(null); }} onSubmit={handleUpdateUser} />
+        <UserEditModal
+          open
+          isSubmitting={isUpdatingUser}
+          departments={departments}
+          user={editingUser}
+          onOpenChange={(open) => {
+            if (!open) setEditingUser(null);
+          }}
+          onSubmit={handleUpdateUser}
+        />
       ) : null}
       {deletingUser ? (
         <UserDeleteModal open isSubmitting={isDeletingUser} user={deletingUser} onOpenChange={(open) => { if (!open) setDeletingUser(null); }} onConfirm={handleDeleteUser} />

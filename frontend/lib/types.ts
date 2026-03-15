@@ -89,6 +89,12 @@ export type GrievanceUserSummary = {
   last_name?: string | null;
 };
 
+export type GrievanceDepartmentSummary = {
+  id: number;
+  name: string;
+  code: string;
+};
+
 export type GrievanceCommentRead = {
   id: string;
   grievance_id: string;
@@ -117,10 +123,14 @@ export type GrievanceListItem = {
   status: GrievanceStatus;
   is_anonymous: boolean;
   assigned_to_user_id?: string | null;
+  department_id?: number | null;
   created_at: string;
   updated_at: string;
+  first_response_at?: string | null;
+  resolved_at?: string | null;
   student: GrievanceUserSummary;
   assigned_to_user?: GrievanceUserSummary | null;
+  department?: GrievanceDepartmentSummary | null;
 };
 
 export type GrievanceRead = GrievanceListItem & {

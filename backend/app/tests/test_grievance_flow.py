@@ -151,6 +151,15 @@ def test_student_cannot_access_other_student_grievance(client):
 
 
 def test_staff_can_triage_assign_and_resolve(client, db_session):
+    admin = register_and_login(
+        client,
+        email="triage.admin@example.com",
+        first_name="Triage",
+        last_name="Admin",
+        matric_number="ADM/25/9000",
+    )
+    assign_role(db_session, uuid.UUID(admin["id"]), "admin")
+
     student = register_and_login(
         client,
         email="triage.student@example.com",
@@ -180,19 +189,28 @@ def test_staff_can_triage_assign_and_resolve(client, db_session):
     )
     assign_role(db_session, uuid.UUID(staff["id"]), "staff")
 
+    departments_response = client.get(
+        "/operations/departments?active_only=true",
+        headers=auth_headers(admin["token"]),
+    )
+    assert departments_response.status_code == 200
+    department_id = next(
+        item["id"] for item in departments_response.json() if item["code"] == "ICT"
+    )
+
+    route_response = client.post(
+        f"/operations/grievances/{grievance_id}/route",
+        json={"department_id": department_id, "assignee_user_id": staff["id"]},
+        headers=auth_headers(admin["token"]),
+    )
+    assert route_response.status_code == 200
+    assert route_response.json()["assigned_to_user_id"] == staff["id"]
+
     queue_response = client.get("/grievances/queue", headers=auth_headers(staff["token"]))
     assert queue_response.status_code == 200
     queue_items = queue_response.json()
     assert len(queue_items) == 1
     assert queue_items[0]["id"] == grievance_id
-
-    assign_response = client.post(
-        f"/grievances/{grievance_id}/assign",
-        json={"assignee_user_id": staff["id"]},
-        headers=auth_headers(staff["token"]),
-    )
-    assert assign_response.status_code == 200
-    assert assign_response.json()["assigned_to_user_id"] == staff["id"]
 
     in_progress_response = client.patch(
         f"/grievances/{grievance_id}/status",
@@ -236,7 +254,7 @@ def test_staff_can_triage_assign_and_resolve(client, db_session):
     assert len(detail_payload["status_history"]) == 3
 
     audit_actions = set(db_session.scalars(select(AuditLog.action)).all())
-    assert "grievance.assigned" in audit_actions
+    assert "grievance.routed" in audit_actions
     assert "grievance.status_changed" in audit_actions
 
 

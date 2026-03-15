@@ -14,6 +14,7 @@ import type {
   SLAEvaluationResponse,
   SLAPolicyRead,
   SLAPolicyUpsertRequest,
+  UserRead,
 } from "@/lib/types";
 
 function buildQuery(params: Record<string, string | number | boolean | undefined>) {
@@ -88,6 +89,15 @@ export async function listOperationsQueue(options?: {
     include_closed: options?.includeClosed,
   });
   return apiRequest<OperationalGrievanceItem[]>(`/operations/queue${query}`);
+}
+
+export async function listAssignableOperationalUsers(
+  departmentId?: number,
+): Promise<UserRead[]> {
+  const query = buildQuery({
+    department_id: departmentId,
+  });
+  return apiRequest<UserRead[]>(`/operations/assignable-users${query}`);
 }
 
 export async function routeGrievance(

@@ -12,7 +12,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.core.monitoring import MonitoringState, RequestMonitoringMiddleware
-from app.db import base as _base_models  # noqa: F401
+from app.db import base as _base_models  
 from app.db.session import SessionLocal
 from app.middleware.rate_limit import RateLimitMiddleware, RateLimiter
 from app.services.escalation_service import seed_default_escalation_rules

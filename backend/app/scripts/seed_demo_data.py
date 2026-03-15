@@ -143,7 +143,7 @@ DEMO_USERS: tuple[DemoUserSpec, ...] = (
         matric_number="STF/OPS/0001",
         phone_number="08031112221",
         faculty="Administration",
-        department="Registry Operations",
+        department="Registry",
         level="N/A",
         created_days_ago=160,
     ),

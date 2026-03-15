@@ -94,7 +94,7 @@ def test_admin_can_create_user_from_users_endpoint(client, db_session):
             "last_name": "Staff",
             "matric_number": "OPS/24/4401",
             "faculty": "Administration",
-            "department": "Student Affairs",
+            "department": "ICT Support",
             "level": "N/A",
         },
         headers={"Authorization": f"Bearer {admin_token}"},
@@ -103,8 +103,45 @@ def test_admin_can_create_user_from_users_endpoint(client, db_session):
     assert create_response.status_code == 201
     payload = create_response.json()
     assert payload["email"] == "new-staff@example.com"
-    assert payload["department"] == "Student Affairs"
+    assert payload["department"] == "ICT Support"
     assert {role["name"] for role in payload["roles"]} == {"staff"}
+
+
+def test_admin_cannot_create_staff_without_valid_operational_department(client, db_session):
+    admin_register_response = client.post(
+        "/auth/register",
+        json={
+            "email": "dept-admin@example.com",
+            "first_name": "Department",
+            "last_name": "Admin",
+            "matric_number": "ADM/24/0201",
+            "password": "StrongPass123!",
+        },
+    )
+    admin_user_id = uuid.UUID(admin_register_response.json()["id"])
+    assign_role(db_session, admin_user_id, "admin")
+
+    admin_login_response = client.post(
+        "/auth/login",
+        json={"email": "dept-admin@example.com", "password": "StrongPass123!"},
+    )
+    admin_token = admin_login_response.json()["access_token"]
+
+    create_response = client.post(
+        "/users",
+        json={
+            "email": "invalid-staff@example.com",
+            "password": "StrongPass123!",
+            "role_name": "staff",
+            "first_name": "Invalid",
+            "last_name": "Staff",
+            "matric_number": "OPS/24/4402",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert create_response.status_code == 400
+    assert "operational department" in create_response.json()["detail"].lower()
 
 
 def test_admin_can_update_and_delete_user_from_users_endpoint(client, db_session):
@@ -150,7 +187,7 @@ def test_admin_can_update_and_delete_user_from_users_endpoint(client, db_session
             "last_name": "User",
             "matric_number": "OPS/24/5501",
             "faculty": "Administration",
-            "department": "Student Affairs",
+            "department": "Registry",
             "level": "N/A",
             "is_active": True,
         },
@@ -159,7 +196,7 @@ def test_admin_can_update_and_delete_user_from_users_endpoint(client, db_session
     assert update_response.status_code == 200
     updated_payload = update_response.json()
     assert updated_payload["email"] == "updated@example.com"
-    assert updated_payload["department"] == "Student Affairs"
+    assert updated_payload["department"] == "Registry"
     assert {role["name"] for role in updated_payload["roles"]} == {"staff"}
 
     delete_response = client.delete(

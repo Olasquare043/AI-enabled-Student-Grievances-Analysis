@@ -24,11 +24,13 @@ import {
   updateGrievanceStatus,
 } from "@/lib/grievance-api";
 import { analyzeGrievance } from "@/lib/nlp-api";
+import { listAssignableOperationalUsers } from "@/lib/operations-api";
 import { cn } from "@/lib/utils";
 import type {
   GrievanceRead,
   GrievanceStatus,
   NLPGrievanceAnalysisResponse,
+  UserRead,
 } from "@/lib/types";
 
 const statusBadgeClass: Record<GrievanceStatus, string> = {
@@ -99,6 +101,8 @@ export default function WorkspaceGrievanceDetailPage() {
   const [resolutionNote, setResolutionNote] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [assignableUsers, setAssignableUsers] = useState<UserRead[]>([]);
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
 
   const canComment = useMemo(() => {
     if (!grievance) {
@@ -145,6 +149,41 @@ export default function WorkspaceGrievanceDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grievanceId]);
 
+  useEffect(() => {
+    if (!hasOperationalRole || !grievance?.department_id) {
+      setAssignableUsers([]);
+      setSelectedAssigneeId(grievance?.assigned_to_user?.id ?? "");
+      return;
+    }
+
+    let isActive = true;
+    const loadAssignableUsers = async () => {
+      try {
+        const users = await listAssignableOperationalUsers(grievance.department_id ?? undefined);
+        if (!isActive) {
+          return;
+        }
+        setAssignableUsers(users);
+        setSelectedAssigneeId((current) => {
+          if (current) {
+            return current;
+          }
+          return grievance.assigned_to_user?.id ?? "";
+        });
+      } catch {
+        if (!isActive) {
+          return;
+        }
+        setAssignableUsers([]);
+      }
+    };
+
+    void loadAssignableUsers();
+    return () => {
+      isActive = false;
+    };
+  }, [grievance?.assigned_to_user?.id, grievance?.department_id, hasOperationalRole]);
+
   const handleAssignToMe = async () => {
     setIsAssigning(true);
     try {
@@ -154,6 +193,29 @@ export default function WorkspaceGrievanceDetailPage() {
       setGrievance(updated);
       setError(null);
       toast.success("Assignment complete", "This grievance is now assigned to you.");
+    } catch (assignError) {
+      const message = assignError instanceof Error ? assignError.message : "Unable to assign";
+      toast.error("Assignment failed", message);
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleAssignSelected = async () => {
+    if (!selectedAssigneeId) {
+      toast.error("Assignment blocked", "Choose a staff member before assigning this case.");
+      return;
+    }
+
+    setIsAssigning(true);
+    try {
+      const updated = await assignGrievance(grievanceId, {
+        assignee_user_id: selectedAssigneeId,
+      });
+      setGrievance(updated);
+      setSelectedAssigneeId(updated.assigned_to_user?.id ?? "");
+      setError(null);
+      toast.success("Assignment updated", "The grievance owner has been updated.");
     } catch (assignError) {
       const message = assignError instanceof Error ? assignError.message : "Unable to assign";
       toast.error("Assignment failed", message);
@@ -456,6 +518,46 @@ export default function WorkspaceGrievanceDetailPage() {
                     </>
                   )}
                 </Button>
+
+                {grievance.department_id ? (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Assign to specific staff</label>
+                    <select
+                      className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                      value={selectedAssigneeId}
+                      onChange={(event) => setSelectedAssigneeId(event.target.value)}
+                    >
+                      <option value="">Select assignee</option>
+                      {assignableUsers.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {[user.first_name, user.last_name].filter(Boolean).join(" ").trim() || user.email}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="outline"
+                      onClick={handleAssignSelected}
+                      disabled={isAssigning || !selectedAssigneeId}
+                    >
+                      {isAssigning ? (
+                        <>
+                          <LoaderCircle className="size-4 animate-spin" />
+                          Saving assignment...
+                        </>
+                      ) : (
+                        <>
+                          <UserRoundCheck className="size-4" />
+                          Assign selected staff
+                        </>
+                      )}
+                    </Button>
+                    {assignableUsers.length === 0 ? (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        No active staff account is mapped to this department yet.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Move status</label>

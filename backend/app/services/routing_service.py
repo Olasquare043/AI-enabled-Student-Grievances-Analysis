@@ -1,6 +1,6 @@
 ﻿import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.audit_log import AuditLog
@@ -18,7 +18,12 @@ from app.schemas.routing import (
     DepartmentUpdateRequest,
     RouteGrievanceRequest,
 )
-from app.services.grievance_service import get_grievance_by_id, is_staff_or_admin
+from app.services.grievance_service import (
+    build_grievance_scope_filters,
+    ensure_can_access_grievance,
+    get_grievance_by_id,
+    is_staff_or_admin,
+)
 from app.services.sla_service import (
     get_sla_policy_for_department,
     reset_sla_timers_for_routing,
@@ -158,6 +163,7 @@ def route_grievance(
 ) -> Grievance:
     if not is_staff_or_admin(acting_user):
         raise PermissionError("Only staff or admins can route grievances")
+    ensure_can_access_grievance(db, acting_user, grievance)
 
     department = db.get(Department, payload.department_id)
     if department is None or not department.is_active:
@@ -249,6 +255,7 @@ def list_grievance_assignments(
 
 def list_operational_queue(
     db: Session,
+    current_user: User,
     *,
     department_id: int | None = None,
     include_closed: bool = False,
@@ -266,6 +273,10 @@ def list_operational_queue(
 
     if department_id is not None:
         stmt = stmt.where(Grievance.department_id == department_id)
+
+    scope_filters = build_grievance_scope_filters(db, current_user)
+    if scope_filters:
+        stmt = stmt.where(or_(*scope_filters))
 
     stmt = stmt.order_by(Grievance.created_at.asc())
     return list(db.scalars(stmt))

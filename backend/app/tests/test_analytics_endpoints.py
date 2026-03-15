@@ -70,6 +70,24 @@ def bootstrap_staff(client, db_session) -> dict[str, str]:
     return staff
 
 
+def bootstrap_admin(client, db_session) -> dict[str, str]:
+    admin = register_and_login(
+        client,
+        email="analytics.admin@example.com",
+        first_name="Analytics",
+        last_name="Admin",
+        matric_number="ADM/26/7000",
+    )
+    assign_role(db_session, uuid.UUID(admin["id"]), "admin")
+    login_response = client.post(
+        "/auth/login",
+        json={"email": "analytics.admin@example.com", "password": "StrongPass123!"},
+    )
+    assert login_response.status_code == 200
+    admin["token"] = login_response.json()["access_token"]
+    return admin
+
+
 def test_analytics_endpoints_require_staff_or_admin(client):
     student = register_and_login(
         client,
@@ -93,6 +111,7 @@ def test_analytics_endpoints_require_staff_or_admin(client):
 
 
 def test_analytics_overview_returns_metrics(client, db_session):
+    admin = bootstrap_admin(client, db_session)
     staff = bootstrap_staff(client, db_session)
     student = register_and_login(
         client,
@@ -137,7 +156,7 @@ def test_analytics_overview_returns_metrics(client, db_session):
 
     departments_response = client.get(
         "/operations/departments?active_only=true",
-        headers=auth_headers(staff["token"]),
+        headers=auth_headers(admin["token"]),
     )
     assert departments_response.status_code == 200
     department_id = departments_response.json()[0]["id"]
@@ -148,7 +167,7 @@ def test_analytics_overview_returns_metrics(client, db_session):
             "department_id": department_id,
             "assignee_user_id": staff["id"],
         },
-        headers=auth_headers(staff["token"]),
+        headers=auth_headers(admin["token"]),
     )
     assert route_response.status_code == 200
 

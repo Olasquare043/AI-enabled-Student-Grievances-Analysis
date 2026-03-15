@@ -93,6 +93,10 @@ export default function RegisterPage() {
               Registration is lightweight and secure. You can complete extra academic profile
               details later inside the dashboard.
             </p>
+            <p>
+              Staff and admin accounts are provisioned from the internal admin workspace, not
+              through this public registration page.
+            </p>
             <div className="space-y-3">
               <div className="rounded-xl border border-border bg-card/70 px-4 py-3">
                 <p className="mb-1 flex items-center gap-2 font-medium text-foreground">

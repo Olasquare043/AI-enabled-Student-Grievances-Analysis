@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import {
   evaluateSla,
+  listAssignableOperationalUsers,
   listDepartments,
   listEscalationRules,
   listOperationsQueue,
@@ -27,6 +28,7 @@ import type {
   SLAEvaluationResponse,
   SLAPolicyRead,
   SLAPolicyUpsertRequest,
+  UserRead,
 } from "@/lib/types";
 
 export default function WorkspaceOperationsPage() {
@@ -39,6 +41,7 @@ export default function WorkspaceOperationsPage() {
   const [breaches, setBreaches] = useState<SLABreachSummary[]>([]);
   const [policies, setPolicies] = useState<SLAPolicyRead[]>([]);
   const [escalationRules, setEscalationRules] = useState<EscalationRuleRead[]>([]);
+  const [assignableUsers, setAssignableUsers] = useState<UserRead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -57,12 +60,20 @@ export default function WorkspaceOperationsPage() {
     }
 
     try {
-      const [departmentList, queueItems, policyList, breachList, ruleList] = await Promise.all([
+      const [
+        departmentList,
+        queueItems,
+        policyList,
+        breachList,
+        ruleList,
+        operationalUsers,
+      ] = await Promise.all([
         listDepartments(true),
         listOperationsQueue(),
         listSlaPolicies(),
         listSlaBreaches(),
         listEscalationRules(),
+        listAssignableOperationalUsers(),
       ]);
 
       setDepartments(departmentList);
@@ -70,6 +81,7 @@ export default function WorkspaceOperationsPage() {
       setPolicies(policyList);
       setBreaches(breachList);
       setEscalationRules(ruleList);
+      setAssignableUsers(operationalUsers);
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : "Unable to load operations";
       if (message.toLowerCase().includes("not authenticated")) {
@@ -88,9 +100,16 @@ export default function WorkspaceOperationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasOperationalRole]);
 
-  const handleRoute = async (grievanceId: string, departmentId: number) => {
+  const handleRoute = async (
+    grievanceId: string,
+    departmentId: number,
+    assigneeUserId?: string,
+  ) => {
     try {
-      await routeGrievance(grievanceId, { department_id: departmentId });
+      await routeGrievance(grievanceId, {
+        department_id: departmentId,
+        assignee_user_id: assigneeUserId || undefined,
+      });
       await loadPage(true);
       toast.success("Grievance routed", "The case was routed successfully.");
     } catch (routeError) {
@@ -178,6 +197,7 @@ export default function WorkspaceOperationsPage() {
         queue={queue}
         breaches={breaches}
         departments={departments}
+        assignableUsers={assignableUsers}
         policies={policies}
         canManagePolicies={isAdmin}
         onRoute={handleRoute}

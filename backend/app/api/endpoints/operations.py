@@ -29,12 +29,18 @@ from app.schemas.sla import (
     SLAPolicyRead,
     SLAPolicyUpsertRequest,
 )
+from app.schemas.user import UserRead
 from app.services.escalation_service import (
     create_escalation_rule,
     evaluate_escalations,
     list_escalation_rules,
 )
-from app.services.grievance_service import get_grievance_by_id, is_staff_or_admin
+from app.services.grievance_service import (
+    can_access_grievance_record,
+    ensure_can_access_grievance,
+    get_grievance_by_id,
+    is_staff_or_admin,
+)
 from app.services.grievance_import_service import (
     CSVImportInputError,
     import_grievances_from_csv,
@@ -59,6 +65,7 @@ from app.services.sla_service import (
     list_sla_policies,
     upsert_sla_policy,
 )
+from app.services.user_service import list_assignable_operational_users
 
 router = APIRouter(prefix="/operations", tags=["operations"])
 AdminUser = Annotated[User, Depends(require_role("admin"))]
@@ -86,6 +93,19 @@ def list_departments_endpoint(
 ) -> list[DepartmentRead]:
     departments = list_departments(db, active_only=active_only)
     return [DepartmentRead.model_validate(item) for item in departments]
+
+
+@router.get("/assignable-users", response_model=list[UserRead])
+def list_assignable_users_endpoint(
+    _: StaffOrAdminUser,
+    db: Annotated[Session, Depends(get_db)],
+    department_id: Annotated[int | None, Query(gt=0)] = None,
+) -> list[UserRead]:
+    try:
+        users = list_assignable_operational_users(db, department_id=department_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return [UserRead.model_validate(user) for user in users]
 
 
 @router.post("/departments", response_model=DepartmentRead, status_code=status.HTTP_201_CREATED)
@@ -208,12 +228,17 @@ def route_grievance_endpoint(
 )
 def grievance_assignments_endpoint(
     grievance_id: uuid.UUID,
-    _: StaffOrAdminUser,
+    current_user: StaffOrAdminUser,
     db: Annotated[Session, Depends(get_db)],
 ) -> list[GrievanceAssignmentRead]:
     grievance = get_grievance_by_id(db, grievance_id, include_details=False)
     if grievance is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grievance not found")
+
+    try:
+        ensure_can_access_grievance(db, current_user, grievance)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
     assignments = list_grievance_assignments(db, grievance_id)
     return [GrievanceAssignmentRead.model_validate(item) for item in assignments]
@@ -221,13 +246,14 @@ def grievance_assignments_endpoint(
 
 @router.get("/queue", response_model=list[OperationalGrievanceItem])
 def operations_queue_endpoint(
-    _: StaffOrAdminUser,
+    current_user: StaffOrAdminUser,
     db: Annotated[Session, Depends(get_db)],
     department_id: Annotated[int | None, Query(gt=0)] = None,
     include_closed: bool = False,
 ) -> list[OperationalGrievanceItem]:
     grievances = list_operational_queue(
         db,
+        current_user,
         department_id=department_id,
         include_closed=include_closed,
     )
@@ -328,10 +354,21 @@ def evaluate_sla_endpoint(
 
 @router.get("/sla/breaches", response_model=list[SLABreachSummary])
 def sla_breaches_endpoint(
-    _: StaffOrAdminUser,
+    current_user: StaffOrAdminUser,
     db: Annotated[Session, Depends(get_db)],
 ) -> list[SLABreachSummary]:
-    return list_active_breaches(db)
+    breaches = list_active_breaches(db)
+    return [
+        breach
+        for breach in breaches
+        if can_access_grievance_record(
+            db,
+            current_user,
+            student_id=breach.student.id,
+            department_id=breach.department_id,
+            assigned_to_user_id=breach.assigned_to_user.id if breach.assigned_to_user else None,
+        )
+    ]
 
 
 @router.post(

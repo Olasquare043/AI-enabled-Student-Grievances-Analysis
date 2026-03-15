@@ -16,6 +16,7 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { GrievanceDataTable } from "@/components/grievance/grievance-data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AnalyticsOverviewResponse, GrievanceListItem, UserRead } from "@/lib/types";
@@ -36,26 +37,10 @@ type DashboardOverviewProps = {
 
 const PERIOD_OPTIONS = [7, 30, 90];
 
-const caseStatusTone: Record<string, string> = {
-  open: "border-amber-500 bg-amber-500 text-slate-950 dark:border-amber-400 dark:bg-amber-400 dark:text-slate-950",
-  in_progress: "border-sky-600 bg-sky-600 text-white dark:border-sky-500 dark:bg-sky-500",
-  resolved: "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500",
-  closed: "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950",
-};
-
 function titleCase(value: string) {
   return value
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function formatTimestamp(value: string) {
-  return new Date(value).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function MetricCard({
@@ -170,12 +155,6 @@ export function DashboardOverview({
     return combined || "Not set";
   }, [currentUser.first_name, currentUser.last_name]);
 
-  const recentCases = useMemo(() => {
-    return [...myCases]
-      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
-      .slice(0, 5);
-  }, [myCases]);
-
   const resolvedCount = myCases.filter(
     (item) => item.status === "resolved" || item.status === "closed",
   ).length;
@@ -238,6 +217,7 @@ export function DashboardOverview({
   const categorySummary = Array.from(topCategories)
     .sort((left, right) => right[1] - left[1])
     .slice(0, 3);
+  const isAdmin = currentUser.roles.some((role) => role.name === "admin");
   const showAiStatus = hasOperationalRole;
   const overviewBreachCount =
     overview?.sla_compliance.reduce((sum, item) => sum + item.breached_count, 0) ?? 0;
@@ -466,50 +446,25 @@ export function DashboardOverview({
         </Card>
       </div>
 
-      <Card className="surface-card rounded-[2rem]">
-        <CardHeader className="space-y-2">
-          <CardTitle className="text-lg">Recent grievance activity</CardTitle>
-          <p className="text-sm leading-6 text-muted-foreground">
-            Latest case movement available directly from the shared workspace.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {recentCases.length > 0 ? (
-            recentCases.map((item) => (
-              <Link
-                key={item.id}
-                href={`/app/grievances/${item.id}`}
-                className="flex flex-col gap-4 rounded-[1.5rem] border border-border/70 bg-background/70 px-4 py-4 transition hover:border-primary/30 hover:bg-primary/5 md:flex-row md:items-center md:justify-between"
-              >
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">{item.title}</p>
-                    <span
-                      className={cn(
-                        "rounded-full border px-2.5 py-1 text-xs font-semibold",
-                        caseStatusTone[item.status] ?? caseStatusTone.closed,
-                      )}
-                    >
-                      {titleCase(item.status)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {titleCase(item.category)} - Updated {formatTimestamp(item.updated_at)}
-                  </p>
-                </div>
-                <div className="inline-flex items-center gap-2 text-sm font-medium text-primary">
-                  View case
-                  <ArrowRight className="size-4" />
-                </div>
-              </Link>
-            ))
-          ) : (
-            <div className="rounded-[1.5rem] border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-              No grievance activity has been recorded yet. Start from the grievance workspace to create your first case.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <GrievanceDataTable
+        grievances={myCases}
+        hasOperationalRole={hasOperationalRole}
+        title={hasOperationalRole ? "Grievance register" : "My grievance register"}
+        description={
+          hasOperationalRole
+            ? isAdmin
+              ? "Search, filter, and page through every grievance in the workspace without leaving the dashboard."
+              : "Search, filter, and page through the grievances routed to your department or assigned directly to you."
+            : "Search, filter, and page through your grievance history from the dashboard."
+        }
+        emptyMessage={
+          hasOperationalRole
+            ? isAdmin
+              ? "No grievance records are available yet."
+              : "No grievances are currently assigned to you or routed to your department."
+            : "No grievance activity has been recorded yet. Start from the grievance workspace to create your first case."
+        }
+      />
     </div>
   );
 }

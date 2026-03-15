@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 
 from app.models.sla_event import SLAEvent
+from app.models.user import User
 from app.services.sla_service import (
     SLA_EVENT_FIRST_RESPONSE_DEADLINE,
     SLA_EVENT_RESOLUTION_DEADLINE,
@@ -159,6 +160,13 @@ def test_staff_can_route_grievance_and_operations_queue_shows_sla(client, db_ses
     assert departments_response.status_code == 200
     department_id = departments_response.json()[0]["id"]
 
+    assignable_response = client.get(
+        "/operations/assignable-users",
+        headers=auth_headers(admin["token"]),
+    )
+    assert assignable_response.status_code == 200
+    assert any(item["id"] == staff["id"] for item in assignable_response.json())
+
     route_response = client.post(
         f"/operations/grievances/{grievance_id}/route",
         json={
@@ -166,7 +174,7 @@ def test_staff_can_route_grievance_and_operations_queue_shows_sla(client, db_ses
             "assignee_user_id": staff["id"],
             "note": "Routing to operations staff for first action",
         },
-        headers=auth_headers(staff["token"]),
+        headers=auth_headers(admin["token"]),
     )
     assert route_response.status_code == 200
     routed = route_response.json()
@@ -191,6 +199,102 @@ def test_staff_can_route_grievance_and_operations_queue_shows_sla(client, db_ses
     matched = next(item for item in queue_items if item["id"] == grievance_id)
     assert matched["first_response_status"] in {"pending", "met"}
     assert matched["resolution_status"] in {"pending", "met"}
+
+
+def test_staff_scope_is_limited_to_department_and_assigned_cases(client, db_session):
+    admin = bootstrap_admin(client, db_session)
+    ict_staff = bootstrap_staff(client, db_session)
+    registry_staff = register_and_login(
+        client,
+        email="ops.registry.staff@example.com",
+        first_name="Registry",
+        last_name="Staff",
+        matric_number="STF/26/0002",
+    )
+    assign_role(db_session, uuid.UUID(registry_staff["id"]), "staff")
+    registry_login = client.post(
+        "/auth/login",
+        json={"email": "ops.registry.staff@example.com", "password": "StrongPass123!"},
+    )
+    assert registry_login.status_code == 200
+    registry_staff["token"] = registry_login.json()["access_token"]
+
+    ict_staff_user = db_session.get(User, uuid.UUID(ict_staff["id"]))
+    registry_staff_user = db_session.get(User, uuid.UUID(registry_staff["id"]))
+    assert ict_staff_user is not None
+    assert registry_staff_user is not None
+    ict_staff_user.department = "ICT Support"
+    registry_staff_user.department = "Registry"
+    db_session.add(ict_staff_user)
+    db_session.add(registry_staff_user)
+    db_session.commit()
+
+    student = register_and_login(
+        client,
+        email="ops.scope.student@example.com",
+        first_name="Scope",
+        last_name="Student",
+        matric_number="STD/26/0202",
+    )
+
+    grievance_response = client.post(
+        "/grievances",
+        json={
+            "title": "Campus Wi-Fi portal unavailable",
+            "description": "The portal rejects login attempts and the Wi-Fi onboarding flow is blocked.",
+            "category": "ict",
+            "is_anonymous": False,
+        },
+        headers=auth_headers(student["token"]),
+    )
+    assert grievance_response.status_code == 201
+    grievance_id = grievance_response.json()["id"]
+
+    departments_response = client.get(
+        "/operations/departments?active_only=true",
+        headers=auth_headers(admin["token"]),
+    )
+    departments = departments_response.json()
+    ict_department_id = next(item["id"] for item in departments if item["code"] == "ICT")
+
+    route_response = client.post(
+        f"/operations/grievances/{grievance_id}/route",
+        json={"department_id": ict_department_id},
+        headers=auth_headers(admin["token"]),
+    )
+    assert route_response.status_code == 200
+
+    ict_queue_response = client.get(
+        "/operations/queue",
+        headers=auth_headers(ict_staff["token"]),
+    )
+    assert ict_queue_response.status_code == 200
+    ict_queue_ids = {item["id"] for item in ict_queue_response.json()}
+    assert grievance_id in ict_queue_ids
+
+    registry_queue_response = client.get(
+        "/operations/queue",
+        headers=auth_headers(registry_staff["token"]),
+    )
+    assert registry_queue_response.status_code == 200
+    registry_queue_ids = {item["id"] for item in registry_queue_response.json()}
+    assert grievance_id not in registry_queue_ids
+
+    ict_list_response = client.get(
+        "/grievances",
+        headers=auth_headers(ict_staff["token"]),
+    )
+    assert ict_list_response.status_code == 200
+    ict_list_ids = {item["id"] for item in ict_list_response.json()}
+    assert grievance_id in ict_list_ids
+
+    registry_list_response = client.get(
+        "/grievances",
+        headers=auth_headers(registry_staff["token"]),
+    )
+    assert registry_list_response.status_code == 200
+    registry_list_ids = {item["id"] for item in registry_list_response.json()}
+    assert grievance_id not in registry_list_ids
 
 
 def test_routed_case_breaches_sla_and_triggers_escalation(client, db_session):
@@ -237,7 +341,7 @@ def test_routed_case_breaches_sla_and_triggers_escalation(client, db_session):
     route_response = client.post(
         f"/operations/grievances/{grievance_id}/route",
         json={"department_id": department_id, "assignee_user_id": staff["id"]},
-        headers=auth_headers(staff["token"]),
+        headers=auth_headers(admin["token"]),
     )
     assert route_response.status_code == 200
 
@@ -340,7 +444,7 @@ def test_resolved_case_is_removed_from_active_breaches(client, db_session):
     route_response = client.post(
         f"/operations/grievances/{grievance_id}/route",
         json={"department_id": department_id, "assignee_user_id": staff["id"]},
-        headers=auth_headers(staff["token"]),
+        headers=auth_headers(admin["token"]),
     )
     assert route_response.status_code == 200
 

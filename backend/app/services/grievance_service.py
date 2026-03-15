@@ -1,10 +1,11 @@
 ﻿import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.audit_log import AuditLog
+from app.models.department import Department
 from app.models.grievance import (
     GRIEVANCE_STATUS_CLOSED,
     GRIEVANCE_STATUS_IN_PROGRESS,
@@ -76,6 +77,79 @@ def is_staff_or_admin(user: User) -> bool:
     return ROLE_ADMIN in role_names or ROLE_STAFF in role_names
 
 
+def is_admin(user: User) -> bool:
+    return ROLE_ADMIN in _role_names(user)
+
+
+def _normalize_department_lookup(value: str | None) -> tuple[str, str]:
+    normalized_name = " ".join((value or "").strip().lower().split())
+    normalized_code = "".join((value or "").strip().upper().split())
+    return normalized_name, normalized_code
+
+
+def get_staff_scope_department_ids(db: Session, user: User) -> set[int]:
+    if ROLE_STAFF not in _role_names(user):
+        return set()
+
+    normalized_name, normalized_code = _normalize_department_lookup(user.department)
+    if not normalized_name and not normalized_code:
+        return set()
+
+    department_ids: set[int] = set()
+    departments = db.scalars(select(Department)).all()
+    for department in departments:
+        department_name = " ".join(department.name.strip().lower().split())
+        department_code = "".join(department.code.strip().upper().split())
+
+        if normalized_code and normalized_code == department_code:
+            department_ids.add(department.id)
+            continue
+
+        if normalized_name and (
+            normalized_name == department_name
+            or normalized_name in department_name
+            or department_name in normalized_name
+        ):
+            department_ids.add(department.id)
+
+    return department_ids
+
+
+def build_grievance_scope_filters(db: Session, current_user: User) -> list[object]:
+    if is_admin(current_user):
+        return []
+
+    if ROLE_STAFF in _role_names(current_user):
+        filters: list[object] = [Grievance.assigned_to_user_id == current_user.id]
+        department_ids = get_staff_scope_department_ids(db, current_user)
+        if department_ids:
+            filters.append(Grievance.department_id.in_(department_ids))
+        return filters
+
+    return [Grievance.student_id == current_user.id]
+
+
+def can_access_grievance_record(
+    db: Session,
+    user: User,
+    *,
+    student_id: uuid.UUID,
+    department_id: int | None,
+    assigned_to_user_id: uuid.UUID | None,
+) -> bool:
+    if is_admin(user):
+        return True
+
+    if ROLE_STAFF in _role_names(user):
+        if assigned_to_user_id == user.id:
+            return True
+        if department_id is None:
+            return False
+        return department_id in get_staff_scope_department_ids(db, user)
+
+    return student_id == user.id
+
+
 def _record_audit(
     db: Session,
     *,
@@ -107,11 +181,17 @@ def get_grievance_by_id(
     return db.scalar(stmt)
 
 
-def ensure_can_access_grievance(user: User, grievance: Grievance) -> None:
-    if is_staff_or_admin(user):
+def ensure_can_access_grievance(db: Session, user: User, grievance: Grievance) -> None:
+    if can_access_grievance_record(
+        db,
+        user,
+        student_id=grievance.student_id,
+        department_id=grievance.department_id,
+        assigned_to_user_id=grievance.assigned_to_user_id,
+    ):
         return
-    if grievance.student_id != user.id:
-        raise PermissionError("You do not have access to this grievance")
+
+    raise PermissionError("You do not have access to this grievance")
 
 
 def create_grievance(
@@ -172,8 +252,12 @@ def list_grievances(
 
     stmt = select(Grievance).options(*LIST_LOAD_OPTIONS)
 
-    if not is_staff_or_admin(current_user) or mine:
+    if mine:
         stmt = stmt.where(Grievance.student_id == current_user.id)
+    else:
+        scope_filters = build_grievance_scope_filters(db, current_user)
+        if scope_filters:
+            stmt = stmt.where(or_(*scope_filters))
 
     if status_filter:
         stmt = stmt.where(Grievance.status == status_filter)
@@ -203,6 +287,10 @@ def list_triage_queue(
         .where(Grievance.status.in_([GRIEVANCE_STATUS_OPEN, GRIEVANCE_STATUS_IN_PROGRESS]))
     )
 
+    scope_filters = build_grievance_scope_filters(db, current_user)
+    if scope_filters:
+        stmt = stmt.where(or_(*scope_filters))
+
     if status_filter:
         stmt = stmt.where(Grievance.status == status_filter)
     if category_filter:
@@ -220,6 +308,7 @@ def assign_grievance(
 ) -> Grievance:
     if not is_staff_or_admin(acting_user):
         raise PermissionError("Only staff or admins can assign grievances")
+    ensure_can_access_grievance(db, acting_user, grievance)
 
     assignee = get_user_by_id(db, payload.assignee_user_id)
     if assignee is None:
@@ -271,6 +360,7 @@ def update_grievance_status(
 ) -> Grievance:
     if not is_staff_or_admin(acting_user):
         raise PermissionError("Only staff or admins can change grievance status")
+    ensure_can_access_grievance(db, acting_user, grievance)
 
     target_status = ensure_grievance_status(payload.status)
     current_status = grievance.status

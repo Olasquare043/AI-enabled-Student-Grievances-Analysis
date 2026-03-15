@@ -3,6 +3,7 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ChevronDown,
   GraduationCap,
   LoaderCircle,
   ShieldCheck,
@@ -17,7 +18,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { AdminUserCreateRequest, AdminUserUpdateRequest, RoleName, UserRead } from "@/lib/types";
+import type {
+  AdminUserCreateRequest,
+  AdminUserUpdateRequest,
+  DepartmentRead,
+  RoleName,
+  UserRead,
+} from "@/lib/types";
 
 type UserFormState = {
   email: string;
@@ -98,6 +105,12 @@ function buildFormState(user?: UserRead | null): UserFormState {
   };
 }
 
+function resolveStaffDepartmentValue(value: string, departments: DepartmentRead[]) {
+  return departments.some((department) => department.name === value || department.code === value)
+    ? value
+    : "";
+}
+
 function ModalShell({
   open,
   isSubmitting,
@@ -155,6 +168,7 @@ function UserFormModal({
   mode,
   open,
   isSubmitting,
+  departments,
   user,
   onOpenChange,
   onSubmit,
@@ -162,6 +176,7 @@ function UserFormModal({
   mode: "create" | "edit";
   open: boolean;
   isSubmitting: boolean;
+  departments: DepartmentRead[];
   user?: UserRead | null;
   onOpenChange: (open: boolean) => void;
   onSubmit: (payload: AdminUserCreateRequest | AdminUserUpdateRequest) => Promise<void>;
@@ -171,6 +186,12 @@ function UserFormModal({
   const roleHint = useMemo(
     () => ROLE_OPTIONS.find((option) => option.role === form.role_name),
     [form.role_name],
+  );
+  const isStaffRole = form.role_name === "staff";
+  const isStudentRole = form.role_name === "student";
+  const staffDepartmentValue = useMemo(
+    () => resolveStaffDepartmentValue(form.department, departments),
+    [departments, form.department],
   );
 
   const handleClose = () => {
@@ -195,9 +216,15 @@ function UserFormModal({
     const lastName = form.last_name.trim();
     const email = form.email.trim();
     const password = form.password.trim();
+    const departmentValue = isStaffRole ? staffDepartmentValue : form.department;
 
     if (!firstName || !lastName || !email) {
       setError("First name, last name, and email are required.");
+      return;
+    }
+
+    if (isStaffRole && !departmentValue.trim()) {
+      setError("Staff accounts must be linked to an operational department.");
       return;
     }
 
@@ -216,7 +243,7 @@ function UserFormModal({
         matric_number: normalizeOptional(form.matric_number) ?? undefined,
         phone_number: normalizeOptional(form.phone_number) ?? undefined,
         faculty: normalizeOptional(form.faculty) ?? undefined,
-        department: normalizeOptional(form.department) ?? undefined,
+        department: normalizeOptional(departmentValue) ?? undefined,
         level: normalizeOptional(form.level) ?? undefined,
       });
     } else {
@@ -229,7 +256,7 @@ function UserFormModal({
         matric_number: normalizeOptional(form.matric_number),
         phone_number: normalizeOptional(form.phone_number),
         faculty: normalizeOptional(form.faculty),
-        department: normalizeOptional(form.department),
+        department: normalizeOptional(departmentValue),
         level: normalizeOptional(form.level),
         is_active: form.is_active,
       });
@@ -392,25 +419,49 @@ function UserFormModal({
                   id={`${mode}-user-faculty`}
                   value={form.faculty}
                   onChange={(event) => handleChange("faculty", event.target.value)}
-                  placeholder="Science"
+                  placeholder={isStudentRole ? "Science" : "Administration"}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor={`${mode}-user-department`}>Department</Label>
-                <Input
-                  id={`${mode}-user-department`}
-                  value={form.department}
-                  onChange={(event) => handleChange("department", event.target.value)}
-                  placeholder="Computer Science"
-                />
+                <Label htmlFor={`${mode}-user-department`}>
+                  {isStaffRole ? "Operational department" : "Department"}
+                </Label>
+                {isStaffRole ? (
+                  <div className="relative">
+                    <select
+                      id={`${mode}-user-department`}
+                      value={staffDepartmentValue}
+                      onChange={(event) => handleChange("department", event.target.value)}
+                      className="h-11 w-full appearance-none rounded-xl border border-border bg-background px-3 pr-9 text-sm text-foreground"
+                      required
+                    >
+                      <option value="">Select department</option>
+                      {departments.map((department) => (
+                        <option key={department.id} value={department.name}>
+                          {department.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  </div>
+                ) : (
+                  <Input
+                    id={`${mode}-user-department`}
+                    value={form.department}
+                    onChange={(event) => handleChange("department", event.target.value)}
+                    placeholder={isStudentRole ? "Computer Science" : "Platform Operations"}
+                  />
+                )}
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor={`${mode}-user-level`}>Level or staff band</Label>
+                <Label htmlFor={`${mode}-user-level`}>
+                  {isStudentRole ? "Level" : "Level or staff band"}
+                </Label>
                 <Input
                   id={`${mode}-user-level`}
                   value={form.level}
                   onChange={(event) => handleChange("level", event.target.value)}
-                  placeholder="500, Graduate, Level 2, or N/A"
+                  placeholder={isStudentRole ? "500" : "Graduate, Level 2, or N/A"}
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
@@ -487,14 +538,17 @@ function UserFormModal({
 export function UserCreateModal(props: {
   open: boolean;
   isSubmitting: boolean;
+  departments: DepartmentRead[];
   onOpenChange: (open: boolean) => void;
   onSubmit: (payload: AdminUserCreateRequest) => Promise<void>;
 }) {
   return (
     <UserFormModal
+      key={`create-${props.open ? "open" : "closed"}`}
       mode="create"
       open={props.open}
       isSubmitting={props.isSubmitting}
+      departments={props.departments}
       onOpenChange={props.onOpenChange}
       onSubmit={(payload) => props.onSubmit(payload as AdminUserCreateRequest)}
     />
@@ -504,15 +558,18 @@ export function UserCreateModal(props: {
 export function UserEditModal(props: {
   open: boolean;
   isSubmitting: boolean;
+  departments: DepartmentRead[];
   user: UserRead | null;
   onOpenChange: (open: boolean) => void;
   onSubmit: (payload: AdminUserUpdateRequest) => Promise<void>;
 }) {
   return (
     <UserFormModal
+      key={`edit-${props.user?.id ?? "empty"}-${props.open ? "open" : "closed"}`}
       mode="edit"
       open={props.open}
       isSubmitting={props.isSubmitting}
+      departments={props.departments}
       user={props.user}
       onOpenChange={props.onOpenChange}
       onSubmit={(payload) => props.onSubmit(payload as AdminUserUpdateRequest)}
