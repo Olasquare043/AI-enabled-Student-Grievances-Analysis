@@ -9,20 +9,28 @@ import type {
 
 export const REQUEST_TIMEOUT_MS = 15000;
 
+function normalizeApiBaseUrl(apiBaseUrl: string) {
+  if (apiBaseUrl.startsWith("/")) {
+    return apiBaseUrl.replace(/\/$/, "");
+  }
+
+  try {
+    const normalizedUrl = new URL(apiBaseUrl);
+    if (normalizedUrl.hostname === "localhost") {
+      normalizedUrl.hostname = "127.0.0.1";
+    }
+    return normalizedUrl.toString().replace(/\/$/, "");
+  } catch {
+    return apiBaseUrl.replace(/\/$/, "");
+  }
+}
+
 export function getApiBaseUrl() {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   if (apiBaseUrl) {
-    try {
-      const normalizedUrl = new URL(apiBaseUrl);
-      if (normalizedUrl.hostname === "localhost") {
-        normalizedUrl.hostname = "127.0.0.1";
-      }
-      return normalizedUrl.toString().replace(/\/$/, "");
-    } catch {
-      return apiBaseUrl.replace(/\/$/, "");
-    }
+    return normalizeApiBaseUrl(apiBaseUrl);
   }
-  return "http://127.0.0.1:8000";
+  return "/api";
 }
 
 export async function apiRequest<T>(
@@ -56,11 +64,11 @@ export async function apiRequest<T>(
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error(
-        `Request timed out. Ensure backend is running at ${apiBaseUrl}.`,
+        `Request timed out. Ensure the backend API is reachable at ${apiBaseUrl}.`,
       );
     }
     throw new Error(
-      `Unable to reach backend API at ${apiBaseUrl}. Start backend server and retry.`,
+      `Unable to reach backend API at ${apiBaseUrl}. Ensure the backend service is running and retry.`,
     );
   } finally {
     clearTimeout(timeoutHandle);

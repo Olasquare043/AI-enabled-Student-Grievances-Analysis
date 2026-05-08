@@ -10,7 +10,6 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.security import get_password_hash
 from app.db.session import Base, SessionLocal
 from app.models.department import Department
@@ -514,13 +513,11 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def ensure_safe_target() -> None:
-    settings = get_settings()
-    database_url = settings.database_url.lower()
-    test_database_url = settings.test_database_url.lower()
-
-    if database_url == test_database_url or "grievance_test" in database_url:
-        abort("Refusing to seed the test database. Point DATABASE_URL at your development database.")
+def database_has_application_data(db: Session) -> bool:
+    return (
+        db.scalar(select(User.id).limit(1)) is not None
+        or db.scalar(select(Grievance.id).limit(1)) is not None
+    )
 
 
 def reset_application_data(db: Session) -> None:
@@ -924,16 +921,16 @@ def print_summary() -> None:
     print("Coverage: realistic records across 7, 30, and 90 day reporting windows.")
 
 
-def main() -> None:
-    args = parse_args()
-    if not args.force_reset:
-        abort("Seeder is destructive. Re-run with --force-reset to continue.")
-
-    ensure_safe_target()
-
+def run_demo_seed(*, force_reset: bool) -> None:
     with SessionLocal() as db:
         try:
-            reset_application_data(db)
+            if force_reset:
+                reset_application_data(db)
+            elif database_has_application_data(db):
+                raise RuntimeError(
+                    "Database already contains application data. Re-run with --force-reset to replace it."
+                )
+
             seed_roles(db)
             seed_departments(db)
             seed_default_sla_policies(db)
@@ -943,6 +940,13 @@ def main() -> None:
             db.rollback()
             abort(f"Failed to seed development demo data: {exc}")
 
+
+def main() -> None:
+    args = parse_args()
+    if not args.force_reset:
+        abort("Seeder is destructive. Re-run with --force-reset to continue.")
+
+    run_demo_seed(force_reset=True)
     print_summary()
 
 

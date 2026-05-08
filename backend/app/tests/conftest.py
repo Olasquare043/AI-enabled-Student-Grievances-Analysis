@@ -4,14 +4,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-os.environ.setdefault(
-    "DATABASE_URL",
-    "postgresql+psycopg://root:olayiwola@localhost:5432/grievance_test",
-)
-os.environ.setdefault(
-    "TEST_DATABASE_URL",
-    "postgresql+psycopg://root:olayiwola@localhost:5432/grievance_test",
-)
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    raise RuntimeError("DATABASE_URL must be set before running backend tests.")
+
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret")
 os.environ.setdefault("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 os.environ.setdefault("LLM_PROVIDER", "none")

@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     )
 
     database_url: str = Field(..., alias="DATABASE_URL")
-    test_database_url: str = Field(..., alias="TEST_DATABASE_URL")
     cache_backend: Literal["auto", "memory", "redis"] = Field(
         "auto", alias="CACHE_BACKEND"
     )
@@ -41,8 +40,10 @@ class Settings(BaseSettings):
         ],
         alias="RATE_LIMIT_EXEMPT_PATHS",
     )
+    auto_seed_demo_data: bool = Field(False, alias="AUTO_SEED_DEMO_DATA")
     cors_origins: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"]
+        default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"],
+        alias="CORS_ORIGINS",
     )
 
     @field_validator("rate_limit_exempt_paths", mode="before")
