@@ -15,6 +15,7 @@ COPY app ./app
 COPY docker ./docker
 
 RUN adduser --system --group appuser \
+    && sed -i 's/\r$//' /app/docker/entrypoint.sh \
     && chmod +x /app/docker/entrypoint.sh \
     && chown -R appuser:appuser /app
 
