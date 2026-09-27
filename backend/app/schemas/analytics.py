@@ -1,5 +1,6 @@
 ﻿import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -78,3 +79,62 @@ class AnalyticsTopicClustersResponse(BaseModel):
     generated_at: datetime
     period_days: int
     clusters: list[TopicClusterInsight]
+
+
+class TopicTrendSeries(BaseModel):
+    topic_id: int
+    label: str
+    top_words: list[str]
+    count: int
+    share_percent: float
+    weekly_counts: list[int]
+    alert_weeks: list[str] = Field(default_factory=list)
+
+
+class TopicSpikeAlert(BaseModel):
+    topic_id: int
+    label: str
+    week_start: str
+    count: int
+    threshold: float
+
+
+class AnalyticsTopicTrendsResponse(BaseModel):
+    generated_at: datetime
+    period_days: int
+    weeks: list[str]
+    topics: list[TopicTrendSeries]
+    alerts: list[TopicSpikeAlert]
+    method: str
+
+
+class ModelCardEntry(BaseModel):
+    name: str
+    cv_macro_f1: float
+    accuracy: float
+    macro_precision: float
+    macro_recall: float
+    macro_f1: float
+
+
+class LiveTriageStats(BaseModel):
+    triaged_grievances: int
+    auto_routed: int
+    auto_route_rate_percent: float
+    category_overrides: int
+    override_rate_percent: float
+    agreement_with_student_percent: float | None = None
+
+
+class AnalyticsModelCardResponse(BaseModel):
+    available: bool
+    model: str
+    auto_route_threshold: float | None = None
+    trained_on: dict[str, Any] = Field(default_factory=dict)
+    models: list[ModelCardEntry] = Field(default_factory=list)
+    student_self_selection_accuracy: float | None = None
+    per_class: list[dict[str, Any]] = Field(default_factory=list)
+    urgency: dict[str, Any] = Field(default_factory=dict)
+    explainability: dict[str, Any] = Field(default_factory=dict)
+    topics: dict[str, Any] = Field(default_factory=dict)
+    live: LiveTriageStats

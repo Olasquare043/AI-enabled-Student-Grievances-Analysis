@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -36,6 +36,8 @@ DEFAULT_DEPARTMENTS: tuple[tuple[str, str], ...] = (
     ("REGISTRY", "Registry"),
     ("HOSTEL", "Hostel Services"),
     ("SECURITY", "Security"),
+    ("ACADEMIC", "Academic Affairs"),
+    ("WELFARE", "Student Welfare"),
 )
 
 
@@ -278,5 +280,5 @@ def list_operational_queue(
     if scope_filters:
         stmt = stmt.where(or_(*scope_filters))
 
-    stmt = stmt.order_by(Grievance.created_at.asc())
+    stmt = stmt.order_by(Grievance.priority.asc().nulls_last(), Grievance.created_at.asc())
     return list(db.scalars(stmt))

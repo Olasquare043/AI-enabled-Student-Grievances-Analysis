@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 
@@ -32,6 +32,8 @@ DEFAULT_SLA_MINUTES_BY_DEPARTMENT_CODE: dict[str, tuple[int, int]] = {
     "REGISTRY": (180, 7200),
     "HOSTEL": (180, 4320),
     "SECURITY": (60, 2880),
+    "ACADEMIC": (240, 7200),
+    "WELFARE": (120, 2880),
 }
 
 

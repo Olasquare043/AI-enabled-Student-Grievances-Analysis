@@ -8,6 +8,8 @@ from statistics import median
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.ml.runtime import get_triage_engine
+from app.models.audit_log import AuditLog
 from app.models.department import Department
 from app.models.grievance import (
     GRIEVANCE_STATUS_CLOSED,
@@ -19,9 +21,15 @@ from app.models.grievance import (
 from app.models.sla_event import SLAEvent
 from app.models.user import User
 from app.schemas.analytics import (
+    AnalyticsModelCardResponse,
     AnalyticsOverviewResponse,
     AnalyticsTopicClustersResponse,
+    AnalyticsTopicTrendsResponse,
     BacklogMetrics,
+    LiveTriageStats,
+    ModelCardEntry,
+    TopicSpikeAlert,
+    TopicTrendSeries,
     CategoryDistributionPoint,
     DepartmentHotspotPoint,
     FacultyHotspotPoint,
@@ -456,4 +464,175 @@ class AnalyticsService:
             generated_at=now,
             period_days=safe_period_days,
             clusters=insights,
+        )
+
+    def get_topic_trends(
+        self,
+        db: Session,
+        *,
+        period_days: int = 180,
+        z: float = 3.0,
+        min_count: int = 5,
+        history_weeks: int = 8,
+    ) -> AnalyticsTopicTrendsResponse:
+        """Weekly LDA topic volumes with the same spike rule used in evaluation:
+        alert when a week's count exceeds mean + z*std of the previous
+        ``history_weeks`` weeks (and at least ``min_count``)."""
+        now = datetime.now(UTC)
+        safe_period_days = _sanitize_period_days(period_days)
+        start_at = _period_start(now, safe_period_days)
+        # Align to Monday so buckets are calendar weeks.
+        first_week = start_at.date() - timedelta(days=start_at.weekday())
+        history_start = first_week - timedelta(weeks=history_weeks)
+        n_weeks = (now.date() - first_week).days // 7 + 1
+        total_weeks = n_weeks + history_weeks
+
+        catalog = {item["topic_id"]: item for item in get_triage_engine().topic_catalog()}
+        rows = db.execute(
+            select(Grievance.topic_id, Grievance.created_at).where(
+                Grievance.topic_id.is_not(None),
+                Grievance.created_at >= datetime.combine(history_start, time.min, tzinfo=UTC),
+            )
+        ).all()
+
+        counts: dict[int, list[int]] = defaultdict(lambda: [0] * total_weeks)
+        for topic_id, created_at in rows:
+            index = (_as_utc(created_at).date() - history_start).days // 7
+            if 0 <= index < total_weeks:
+                counts[int(topic_id)][index] += 1
+
+        def label_for(topic_id: int) -> str:
+            words = catalog.get(topic_id, {}).get("top_words", [])
+            return ", ".join(words[:3]) if words else f"Topic {topic_id}"
+
+        weeks = [(first_week + timedelta(weeks=i)).isoformat() for i in range(n_weeks)]
+        period_total = sum(sum(series[history_weeks:]) for series in counts.values()) or 1
+        series_out: list[TopicTrendSeries] = []
+        alerts: list[TopicSpikeAlert] = []
+        for topic_id, series in counts.items():
+            alert_weeks: list[str] = []
+            for week in range(history_weeks, total_weeks):
+                history = series[week - history_weeks:week]
+                mean = sum(history) / len(history)
+                std = math.sqrt(sum((value - mean) ** 2 for value in history) / len(history))
+                threshold = mean + z * max(std, 1.0)
+                if series[week] >= max(min_count, threshold):
+                    week_start = weeks[week - history_weeks]
+                    alert_weeks.append(week_start)
+                    alerts.append(
+                        TopicSpikeAlert(
+                            topic_id=topic_id,
+                            label=label_for(topic_id),
+                            week_start=week_start,
+                            count=series[week],
+                            threshold=round(threshold, 2),
+                        )
+                    )
+            period_counts = series[history_weeks:]
+            count = sum(period_counts)
+            if count == 0:
+                continue
+            series_out.append(
+                TopicTrendSeries(
+                    topic_id=topic_id,
+                    label=label_for(topic_id),
+                    top_words=catalog.get(topic_id, {}).get("top_words", [])[:8],
+                    count=count,
+                    share_percent=round(100.0 * count / period_total, 2),
+                    weekly_counts=period_counts,
+                    alert_weeks=alert_weeks,
+                )
+            )
+
+        series_out.sort(key=lambda item: item.count, reverse=True)
+        alerts.sort(key=lambda item: item.week_start, reverse=True)
+        return AnalyticsTopicTrendsResponse(
+            generated_at=now,
+            period_days=safe_period_days,
+            weeks=weeks,
+            topics=series_out,
+            alerts=alerts,
+            method=(
+                f"LDA topic per grievance; alert when weekly count > mean + {z:g} x std "
+                f"of previous {history_weeks} weeks (minimum {min_count})"
+            ),
+        )
+
+    def get_model_card(self, db: Session) -> AnalyticsModelCardResponse:
+        engine = get_triage_engine()
+        metrics = engine.metrics or {}
+
+        triaged = db.scalar(
+            select(func.count(Grievance.id)).where(Grievance.predicted_category.is_not(None))
+        ) or 0
+        auto_routed = db.scalar(
+            select(func.count(Grievance.id)).where(Grievance.auto_routed.is_(True))
+        ) or 0
+        overrides = db.scalar(
+            select(func.count(AuditLog.id)).where(
+                AuditLog.action == "grievance.category_overridden"
+            )
+        ) or 0
+        stated_pairs = [
+            (predicted, (explanation or {}).get("student_category"))
+            for predicted, explanation in db.execute(
+                select(Grievance.predicted_category, Grievance.ai_explanation).where(
+                    Grievance.predicted_category.is_not(None)
+                )
+            ).all()
+        ]
+        stated_pairs = [
+            (predicted, student)
+            for predicted, student in stated_pairs
+            if student and student != "other"
+        ]
+        agreement = (
+            round(
+                100.0
+                * sum(1 for predicted, student in stated_pairs if predicted == student)
+                / len(stated_pairs),
+                2,
+            )
+            if stated_pairs
+            else None
+        )
+
+        live = LiveTriageStats(
+            triaged_grievances=int(triaged),
+            auto_routed=int(auto_routed),
+            auto_route_rate_percent=round(100.0 * auto_routed / triaged, 2) if triaged else 0.0,
+            category_overrides=int(overrides),
+            override_rate_percent=(
+                round(100.0 * overrides / auto_routed, 2) if auto_routed else 0.0
+            ),
+            agreement_with_student_percent=agreement,
+        )
+
+        classification = metrics.get("classification", {})
+        topics = metrics.get("topics", {})
+        urgency = metrics.get("urgency", {})
+        return AnalyticsModelCardResponse(
+            available=engine.available,
+            model=engine.model_name,
+            auto_route_threshold=engine.auto_route_threshold if engine.available else None,
+            trained_on=metrics.get("dataset", {}),
+            models=[
+                ModelCardEntry(name=name, cv_macro_f1=result["cv_macro_f1_mean"], **result["test"])
+                for name, result in classification.get("models", {}).items()
+            ],
+            student_self_selection_accuracy=(
+                classification.get("student_self_selection", {}).get("accuracy")
+            ),
+            per_class=classification.get("per_class", []),
+            urgency={
+                "lexicon": urgency.get("lexicon", {}),
+                "supervised": urgency.get("supervised", {}),
+            },
+            explainability=metrics.get("explainability", {}),
+            topics={
+                "best_k": topics.get("best_k"),
+                "coherence_table": topics.get("coherence_table", []),
+                "events": topics.get("detection", {}).get("events", []),
+            },
+            live=live,
         )

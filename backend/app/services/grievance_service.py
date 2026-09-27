@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 from collections.abc import Sequence
 
 from sqlalchemy import or_, select
@@ -23,6 +23,7 @@ from app.schemas.grievance import (
     GrievanceStatusUpdateRequest,
     ensure_grievance_status,
 )
+from app.services import triage_service
 from app.services.user_service import ROLE_ADMIN, ROLE_STAFF, get_user_by_id
 from app.services.sla_service import (
     mark_first_response_if_needed,
@@ -199,14 +200,29 @@ def create_grievance(
     student_user: User,
     payload: GrievanceCreateRequest,
 ) -> Grievance:
+    title = _normalize_text(payload.title)
+    description = _normalize_multiline_text(payload.description)
+    student_category = (
+        " ".join(payload.category.split()).lower() if payload.category and payload.category.strip() else None
+    )
+    triage = triage_service.analyze(title, description, student_category=student_category)
+
+    # The student's own choice is kept unless it is missing or "other", in which
+    # case the model's prediction becomes the working category.
+    if student_category and student_category != "other":
+        category = student_category
+    else:
+        category = triage.predicted_category or "other"
+
     grievance = Grievance(
         student_id=student_user.id,
-        title=_normalize_text(payload.title),
-        description=_normalize_multiline_text(payload.description),
-        category=_normalize_text(payload.category).lower(),
+        title=title,
+        description=description,
+        category=category,
         is_anonymous=payload.is_anonymous,
         status=GRIEVANCE_STATUS_OPEN,
     )
+    triage_service.apply_triage(grievance, triage)
     db.add(grievance)
     db.flush()
 
@@ -228,9 +244,13 @@ def create_grievance(
             "grievance_id": str(grievance.id),
             "student_id": str(student_user.id),
             "category": grievance.category,
+            "predicted_category": grievance.predicted_category,
+            "category_confidence": grievance.category_confidence,
+            "priority": grievance.priority,
             "status": grievance.status,
         },
     )
+    triage_service.auto_route(db, grievance, triage)
 
     db.commit()
     created = get_grievance_by_id(db, grievance.id)
@@ -296,7 +316,7 @@ def list_triage_queue(
     if category_filter:
         stmt = stmt.where(Grievance.category == category_filter)
 
-    stmt = stmt.order_by(Grievance.created_at.asc())
+    stmt = stmt.order_by(Grievance.priority.asc().nulls_last(), Grievance.created_at.asc())
     return list(db.scalars(stmt))
 
 
@@ -437,3 +457,45 @@ def update_grievance_status(
     if updated is None:
         raise RuntimeError("Updated grievance could not be reloaded")
     return updated
+
+
+def override_grievance_category(
+    db: Session,
+    grievance: Grievance,
+    *,
+    acting_user: User,
+    category: str,
+) -> Grievance:
+    """Staff correction of the working category. Logged so the override rate of
+    AI decisions can be measured."""
+    if not is_staff_or_admin(acting_user):
+        raise PermissionError("Only staff or admins can change a grievance category")
+    ensure_can_access_grievance(db, acting_user, grievance)
+
+    new_category = " ".join(category.split()).lower()
+    if not new_category:
+        raise ValueError("Category cannot be empty")
+    previous = grievance.category
+    if new_category == previous:
+        return grievance
+
+    grievance.category = new_category
+    db.add(grievance)
+    _record_audit(
+        db,
+        action="grievance.category_overridden",
+        user_id=acting_user.id,
+        details={
+            "grievance_id": str(grievance.id),
+            "from_category": previous,
+            "to_category": new_category,
+            "predicted_category": grievance.predicted_category,
+            "category_confidence": grievance.category_confidence,
+            "auto_routed": grievance.auto_routed,
+        },
+    )
+    db.commit()
+    refreshed = get_grievance_by_id(db, grievance.id)
+    if refreshed is None:
+        raise RuntimeError("Grievance could not be reloaded")
+    return refreshed

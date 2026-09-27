@@ -1,9 +1,32 @@
+"""Seed the database with the synthetic grievance dataset.
+
+Loads backend/data/grievances_synthetic.csv (see data/DATASET_CARD.md) and
+replays 18 months of platform operation up to "now":
+
+* every grievance is triaged by the trained models (category, confidence,
+  urgency, priority, topic, explanation), exactly as live submissions are;
+* confident predictions are auto-routed; the rest are routed manually by an
+  administrator after the recorded delay;
+* wrong auto-routes are corrected by staff (category override + re-route), so
+  the live override rate reflects the model's real error rate;
+* first response, resolution and closure follow the recorded durations, and
+  SLA deadline / breach / escalation events are generated from the department
+  SLA policies.
+
+Timestamps are shifted so the newest grievance lands just before the seeding
+time, keeping 7/30/90-day dashboards populated whenever the seed is run.
+"""
+
 from __future__ import annotations
 
 import argparse
+import csv
+import random
 import sys
-from dataclasses import dataclass, field
+import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import NoReturn
 
 from sqlalchemy import select, text
@@ -12,6 +35,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash
 from app.db.session import Base, SessionLocal
+from app.models.audit_log import AuditLog
 from app.models.department import Department
 from app.models.grievance import (
     GRIEVANCE_STATUS_CLOSED,
@@ -27,6 +51,7 @@ from app.models.role import Role
 from app.models.sla_event import SLAEvent
 from app.models.sla_policy import SLAPolicy
 from app.models.user import User
+from app.services import triage_service
 from app.services.escalation_service import seed_default_escalation_rules
 from app.services.routing_service import seed_departments
 from app.services.sla_service import (
@@ -41,13 +66,18 @@ from app.services.sla_service import (
 )
 from app.services.user_service import ROLE_ADMIN, ROLE_STAFF, ROLE_STUDENT, seed_roles
 
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+GRIEVANCES_CSV = DATA_DIR / "grievances_synthetic.csv"
+STUDENTS_CSV = DATA_DIR / "students_synthetic.csv"
+DEMO_PASSWORD = "password123"
+BATCH_SIZE = 250
+
 
 @dataclass(frozen=True)
 class DemoUserSpec:
     key: str
     role_name: str
     email: str
-    password: str
     first_name: str
     last_name: str
     matric_number: str
@@ -55,429 +85,75 @@ class DemoUserSpec:
     faculty: str
     department: str
     level: str
-    created_days_ago: int
 
 
-@dataclass(frozen=True)
-class DemoCommentSpec:
-    author_key: str
-    hours_after_created: float
-    body: str
-
-
-@dataclass(frozen=True)
-class DemoCaseSpec:
-    title: str
-    description: str
-    category: str
-    student_key: str
-    created_days_ago: int
-    created_hour: int
-    created_minute: int
-    final_status: str
-    is_anonymous: bool = False
-    routed_department_code: str | None = None
-    assigned_staff_key: str | None = None
-    route_after_hours: float = 1.0
-    first_response_after_hours: float | None = None
-    resolution_after_hours: float | None = None
-    close_after_hours: float | None = None
-    resolution_note: str | None = None
-    assignment_note: str | None = None
-    comments: tuple[DemoCommentSpec, ...] = field(default_factory=tuple)
-    escalate_first_response: bool = False
-    escalate_resolution: bool = False
-
-
+# Fixed accounts documented in the README. Staff "department" must match a
+# Department name so the staff member sees that department's queue.
 DEMO_USERS: tuple[DemoUserSpec, ...] = (
-    DemoUserSpec(
-        key="admin",
-        role_name=ROLE_ADMIN,
-        email="admin@gmail.com",
-        password="password123",
-        first_name="System",
-        last_name="Administrator",
-        matric_number="ADM/24/0001",
-        phone_number="08030000001",
-        faculty="Administration",
-        department="Platform Operations",
-        level="N/A",
-        created_days_ago=180,
-    ),
-    DemoUserSpec(
-        key="student_saheed",
-        role_name=ROLE_STUDENT,
-        email="ola2@gmail.com",
-        password="password123",
-        first_name="Saheed",
-        last_name="Olayemi Olayinka",
-        matric_number="CSC/24/214906",
-        phone_number="08030796165",
-        faculty="Science",
-        department="Computer Science",
-        level="500",
-        created_days_ago=120,
-    ),
-    DemoUserSpec(
-        key="student_adeyemi",
-        role_name=ROLE_STUDENT,
-        email="adeyemi.omooba@gmail.com",
-        password="password123",
-        first_name="Adeyemi",
-        last_name="Omooba",
-        matric_number="ACC/24/214905",
-        phone_number="08035551234",
-        faculty="Management Sciences",
-        department="Accounting",
-        level="400",
-        created_days_ago=118,
-    ),
-    DemoUserSpec(
-        key="staff_grace",
-        role_name=ROLE_STAFF,
-        email="grace.adebayo@campuspulse.edu.ng",
-        password="password123",
-        first_name="Grace",
-        last_name="Adebayo",
-        matric_number="STF/OPS/0001",
-        phone_number="08031112221",
-        faculty="Administration",
-        department="Registry",
-        level="N/A",
-        created_days_ago=160,
-    ),
-    DemoUserSpec(
-        key="staff_martins",
-        role_name=ROLE_STAFF,
-        email="martins.okafor@campuspulse.edu.ng",
-        password="password123",
-        first_name="Martins",
-        last_name="Okafor",
-        matric_number="STF/OPS/0002",
-        phone_number="08032223332",
-        faculty="Administration",
-        department="ICT Support",
-        level="N/A",
-        created_days_ago=158,
-    ),
+    DemoUserSpec("admin", ROLE_ADMIN, "admin@gmail.com", "System", "Administrator",
+                 "ADM/24/0001", "08030000001", "Administration", "Platform Operations", "N/A"),
+    DemoUserSpec("admin_dsa", ROLE_ADMIN, "dean.students@campuspulse.edu.ng", "Folake", "Adeniran",
+                 "ADM/24/0002", "08030000002", "Administration", "Dean of Students Affairs", "N/A"),
+    DemoUserSpec("S0001", ROLE_STUDENT, "ola2@gmail.com", "Saheed", "Olayemi Olayinka",
+                 "CSC/24/214906", "08030796165", "Science", "Computer Science", "500"),
+    DemoUserSpec("S0002", ROLE_STUDENT, "adeyemi.omooba@gmail.com", "Adeyemi", "Omooba",
+                 "ACC/24/214905", "08035551234", "Management Sciences", "Accounting", "400"),
+    DemoUserSpec("staff_grace", ROLE_STAFF, "grace.adebayo@campuspulse.edu.ng", "Grace", "Adebayo",
+                 "STF/REG/0001", "08031112221", "Administration", "Registry", "N/A"),
+    DemoUserSpec("staff_martins", ROLE_STAFF, "martins.okafor@campuspulse.edu.ng", "Martins", "Okafor",
+                 "STF/ICT/0001", "08032223332", "Administration", "ICT Support", "N/A"),
+)
+
+# Additional staff per department (first name, last name).
+EXTRA_STAFF: dict[str, tuple[tuple[str, str], ...]] = {
+    "ICT Support": (("Ifeoma", "Nwachukwu"), ("Kabiru", "Sani")),
+    "Bursary": (("Oluwaseun", "Akande"), ("Ngozi", "Eze"), ("Musa", "Danladi")),
+    "Registry": (("Tope", "Alabi"), ("Chinwe", "Obiora")),
+    "Hostel Services": (("Rukayat", "Salami"), ("Emeka", "Udeh"), ("Bola", "Ajayi")),
+    "Security": (("Sunday", "Okoro"), ("Abubakar", "Yusuf")),
+    "Academic Affairs": (("Dr. Kemi", "Oladipo"), ("Dr. Uche", "Nnaji"), ("Lanre", "Afolabi")),
+    "Student Welfare": (("Nurse Hadiza", "Bello"), ("Joy", "Okeke")),
+}
+
+ACK_COMMENTS = {
+    "academic": "We have forwarded this to your department's exam officer and the course coordinator.",
+    "bursary": "The bursary is verifying the payment with Remita and the bank. Please keep your receipt.",
+    "registry": "Your request has been logged with the records unit and is being processed.",
+    "ict": "ICT support is investigating. Please avoid multiple attempts while we check the logs.",
+    "hostel": "The hall porter and maintenance unit have been notified and will inspect.",
+    "security": "Security has been alerted and a patrol team has been dispatched to the area.",
+    "welfare": "The student welfare unit has received your complaint and will contact you.",
+}
+RESOLUTION_NOTES = {
+    "academic": "Result/score has been reviewed with the department and the record has been updated.",
+    "bursary": "Payment confirmed and the fees record has been updated. Registration is now open.",
+    "registry": "Record corrected and the requested document has been processed.",
+    "ict": "Portal issue fixed and account access restored.",
+    "hostel": "Maintenance work completed and the hall officer has confirmed the fix.",
+    "security": "Incident investigated; patrols increased and the case documented.",
+    "welfare": "The student has been attended to and follow-up support has been arranged.",
+}
+FOLLOW_UPS = (
+    "Please is there any update on this?",
+    "It has been days and nothing has changed.",
+    "I am still waiting for a response.",
 )
 
 
-DEMO_CASES: tuple[DemoCaseSpec, ...] = (
-    DemoCaseSpec(
-        title="Tuition receipt not generated",
-        description="My school fees were debited successfully but the portal still does not generate a receipt, and course registration remains blocked.",
-        category="bursary",
-        student_key="student_saheed",
-        created_days_ago=2,
-        created_hour=9,
-        created_minute=10,
-        final_status=GRIEVANCE_STATUS_OPEN,
-        routed_department_code="BURSARY",
-        assignment_note="Needs payment ledger verification before registration closes.",
-        comments=(
-            DemoCommentSpec(
-                author_key="student_saheed",
-                hours_after_created=10,
-                body="Payment alert and remita slip have already been uploaded to the portal.",
-            ),
-        ),
-        escalate_first_response=True,
-    ),
-    DemoCaseSpec(
-        title="Student portal authentication failure",
-        description="The student portal keeps rejecting valid credentials and blocks access to course registration and fee statements.",
-        category="ict",
-        student_key="student_adeyemi",
-        created_days_ago=5,
-        created_hour=8,
-        created_minute=25,
-        final_status=GRIEVANCE_STATUS_IN_PROGRESS,
-        routed_department_code="ICT",
-        assigned_staff_key="staff_martins",
-        first_response_after_hours=1.0,
-        assignment_note="Password reset and account lock review in progress.",
-        comments=(
-            DemoCommentSpec(
-                author_key="staff_martins",
-                hours_after_created=7,
-                body="We have traced the issue to an account sync failure and started remediation.",
-            ),
-        ),
-        escalate_resolution=True,
-    ),
-    DemoCaseSpec(
-        title="Hostel plumbing leak near room allocation block",
-        description="Water has been leaking into the room for two days and the maintenance request has not been acknowledged.",
-        category="hostel",
-        student_key="student_saheed",
-        created_days_ago=4,
-        created_hour=11,
-        created_minute=40,
-        final_status=GRIEVANCE_STATUS_IN_PROGRESS,
-        is_anonymous=True,
-        routed_department_code="HOSTEL",
-        first_response_after_hours=2.0,
-        assignment_note="Maintenance contractor visit scheduled but not completed.",
-        comments=(
-            DemoCommentSpec(
-                author_key="student_saheed",
-                hours_after_created=20,
-                body="The leak has now affected the neighboring room as well.",
-            ),
-        ),
-        escalate_resolution=True,
-    ),
-    DemoCaseSpec(
-        title="Missing course registration approval",
-        description="I submitted my course form last week but approval is still pending, and the department has not responded.",
-        category="registry",
-        student_key="student_adeyemi",
-        created_days_ago=1,
-        created_hour=14,
-        created_minute=5,
-        final_status=GRIEVANCE_STATUS_OPEN,
-        comments=(
-            DemoCommentSpec(
-                author_key="student_adeyemi",
-                hours_after_created=5,
-                body="This delay is affecting my exam clearance timeline.",
-            ),
-        ),
-    ),
-    DemoCaseSpec(
-        title="Campus gate ID verification delay",
-        description="Security officers still flag my renewed ID card as invalid even after biometric capture was completed.",
-        category="security",
-        student_key="student_saheed",
-        created_days_ago=6,
-        created_hour=7,
-        created_minute=55,
-        final_status=GRIEVANCE_STATUS_RESOLVED,
-        routed_department_code="SECURITY",
-        first_response_after_hours=0.5,
-        resolution_after_hours=18.0,
-        resolution_note="Security desk refreshed the biometric registry and cleared the ID profile.",
-        comments=(
-            DemoCommentSpec(
-                author_key="staff_grace",
-                hours_after_created=10,
-                body="Security operations confirmed the renewed card record is now active.",
-            ),
-        ),
-    ),
-    DemoCaseSpec(
-        title="Result upload delay for current semester",
-        description="The semester result for two courses is still missing from the portal and faculty support has not clarified the timeline.",
-        category="academic",
-        student_key="student_adeyemi",
-        created_days_ago=7,
-        created_hour=10,
-        created_minute=20,
-        final_status=GRIEVANCE_STATUS_OPEN,
-        routed_department_code="REGISTRY",
-        assigned_staff_key="staff_grace",
-        assignment_note="Awaiting departmental result collation and upload confirmation.",
-        comments=(
-            DemoCommentSpec(
-                author_key="student_adeyemi",
-                hours_after_created=16,
-                body="The missing result is blocking my scholarship application update.",
-            ),
-        ),
-        escalate_first_response=True,
-        escalate_resolution=True,
-    ),
-    DemoCaseSpec(
-        title="Hostel room allocation mix-up",
-        description="My hostel allocation changed after payment confirmation and the current room assigned to me is already occupied.",
-        category="hostel",
-        student_key="student_saheed",
-        created_days_ago=9,
-        created_hour=9,
-        created_minute=35,
-        final_status=GRIEVANCE_STATUS_RESOLVED,
-        routed_department_code="HOSTEL",
-        first_response_after_hours=1.0,
-        resolution_after_hours=28.0,
-        resolution_note="Hostel desk reassigned the correct room and updated the allocation roster.",
-    ),
-    DemoCaseSpec(
-        title="Duplicate fee charge on payment portal",
-        description="The bursary portal generated a second debit notice for a fee that was already paid and verified last week.",
-        category="bursary",
-        student_key="student_adeyemi",
-        created_days_ago=12,
-        created_hour=8,
-        created_minute=45,
-        final_status=GRIEVANCE_STATUS_RESOLVED,
-        routed_department_code="BURSARY",
-        first_response_after_hours=1.5,
-        resolution_after_hours=52.0,
-        resolution_note="Bursary reconciled the duplicate posting and removed the extra balance.",
-        comments=(
-            DemoCommentSpec(
-                author_key="student_adeyemi",
-                hours_after_created=4,
-                body="Attached proof of the original bank transaction for reconciliation.",
-            ),
-        ),
-    ),
-    DemoCaseSpec(
-        title="Wi-Fi outage in software laboratory",
-        description="Department lab connectivity has been unstable for three days and practical sessions now rely on mobile hotspots.",
-        category="ict",
-        student_key="student_saheed",
-        created_days_ago=14,
-        created_hour=13,
-        created_minute=15,
-        final_status=GRIEVANCE_STATUS_CLOSED,
-        routed_department_code="ICT",
-        assigned_staff_key="staff_martins",
-        first_response_after_hours=0.75,
-        resolution_after_hours=7.5,
-        close_after_hours=6.0,
-        resolution_note="ICT replaced the failed switch and restored stable wireless access in the laboratory.",
-    ),
-    DemoCaseSpec(
-        title="Hostel refund still pending after withdrawal",
-        description="I completed hostel withdrawal formalities but the approved refund has not been posted to my student ledger.",
-        category="bursary",
-        student_key="student_adeyemi",
-        created_days_ago=18,
-        created_hour=12,
-        created_minute=5,
-        final_status=GRIEVANCE_STATUS_OPEN,
-        comments=(
-            DemoCommentSpec(
-                author_key="student_adeyemi",
-                hours_after_created=26,
-                body="Finance office asked me to raise a grievance because the ledger remains unchanged.",
-            ),
-        ),
-    ),
-    DemoCaseSpec(
-        title="Transcript request not acknowledged",
-        description="My transcript application payment has been confirmed but there has been no response from registry processing for days.",
-        category="registry",
-        student_key="student_saheed",
-        created_days_ago=21,
-        created_hour=15,
-        created_minute=10,
-        final_status=GRIEVANCE_STATUS_RESOLVED,
-        routed_department_code="REGISTRY",
-        assigned_staff_key="staff_grace",
-        first_response_after_hours=0.9,
-        resolution_after_hours=39.0,
-        resolution_note="Registry validated the payment and moved the transcript request into dispatch processing.",
-    ),
-    DemoCaseSpec(
-        title="Security incident report follow-up",
-        description="A phone theft report was logged with campus security, but there has been no update on CCTV review or case closure.",
-        category="security",
-        student_key="student_adeyemi",
-        created_days_ago=27,
-        created_hour=18,
-        created_minute=0,
-        final_status=GRIEVANCE_STATUS_CLOSED,
-        routed_department_code="SECURITY",
-        first_response_after_hours=0.4,
-        resolution_after_hours=10.0,
-        close_after_hours=5.0,
-        resolution_note="Security completed CCTV review, shared findings, and closed the incident follow-up.",
-    ),
-    DemoCaseSpec(
-        title="Exam timetable conflict between required courses",
-        description="Two compulsory courses were scheduled for overlapping slots and the class has not received an official correction notice.",
-        category="academic",
-        student_key="student_saheed",
-        created_days_ago=35,
-        created_hour=9,
-        created_minute=5,
-        final_status=GRIEVANCE_STATUS_CLOSED,
-        routed_department_code="REGISTRY",
-        assigned_staff_key="staff_grace",
-        first_response_after_hours=1.5,
-        resolution_after_hours=44.0,
-        close_after_hours=8.0,
-        resolution_note="Academic scheduling team published a corrected timetable and notified affected students.",
-    ),
-    DemoCaseSpec(
-        title="Broken hostel access control panel",
-        description="The block access panel has been faulty since the weekend and residents have been locked out repeatedly after lectures.",
-        category="hostel",
-        student_key="student_adeyemi",
-        created_days_ago=42,
-        created_hour=16,
-        created_minute=50,
-        final_status=GRIEVANCE_STATUS_RESOLVED,
-        routed_department_code="HOSTEL",
-        first_response_after_hours=3.0,
-        resolution_after_hours=47.0,
-        resolution_note="Hostel maintenance replaced the control panel and tested access cards successfully.",
-    ),
-    DemoCaseSpec(
-        title="Laptop registration request delayed",
-        description="ICT asset registration for my departmental laptop has been pending and network access credentials are still unavailable.",
-        category="ict",
-        student_key="student_saheed",
-        created_days_ago=50,
-        created_hour=11,
-        created_minute=0,
-        final_status=GRIEVANCE_STATUS_RESOLVED,
-        routed_department_code="ICT",
-        assigned_staff_key="staff_martins",
-        first_response_after_hours=1.2,
-        resolution_after_hours=34.0,
-        resolution_note="ICT enrolled the device on the asset list and issued access credentials to the student.",
-    ),
-    DemoCaseSpec(
-        title="Refund request requires final confirmation",
-        description="My approved departmental fee refund still needs bursary confirmation and the process has exceeded the promised timeline.",
-        category="bursary",
-        student_key="student_adeyemi",
-        created_days_ago=61,
-        created_hour=10,
-        created_minute=35,
-        final_status=GRIEVANCE_STATUS_CLOSED,
-        routed_department_code="BURSARY",
-        first_response_after_hours=2.2,
-        resolution_after_hours=72.0,
-        close_after_hours=5.0,
-        resolution_note="Bursary completed the refund confirmation and posted the final ledger update.",
-    ),
-    DemoCaseSpec(
-        title="Hostel maintenance complaint follow-up",
-        description="A previous hostel maintenance job was marked complete, but the electrical issue returned and required another intervention.",
-        category="hostel",
-        student_key="student_saheed",
-        created_days_ago=72,
-        created_hour=8,
-        created_minute=40,
-        final_status=GRIEVANCE_STATUS_CLOSED,
-        routed_department_code="HOSTEL",
-        first_response_after_hours=1.0,
-        resolution_after_hours=68.0,
-        close_after_hours=7.0,
-        resolution_note="Hostel maintenance replaced the faulty wiring section and confirmed stable power restoration.",
-    ),
-    DemoCaseSpec(
-        title="Missing carry-over course update",
-        description="The carry-over course registration update is missing from my profile and faculty records still show the old status.",
-        category="academic",
-        student_key="student_adeyemi",
-        created_days_ago=84,
-        created_hour=14,
-        created_minute=20,
-        final_status=GRIEVANCE_STATUS_CLOSED,
-        routed_department_code="REGISTRY",
-        assigned_staff_key="staff_grace",
-        first_response_after_hours=1.6,
-        resolution_after_hours=58.0,
-        close_after_hours=4.0,
-        resolution_note="Registry updated the carry-over record and synchronized the correction across the portal.",
-    ),
-)
+def abort(message: str) -> NoReturn:
+    print(message, file=sys.stderr)
+    raise SystemExit(1)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Reset the database and seed the synthetic dataset.")
+    parser.add_argument(
+        "--force-reset",
+        action="store_true",
+        help="Required. Confirms that the current database should be cleared before seeding.",
+    )
+    parser.add_argument("--limit", type=int, default=None, help="Seed only the first N grievances.")
+    return parser.parse_args()
 
 
 RESET_TABLES: tuple[str, ...] = (
@@ -496,23 +172,6 @@ RESET_TABLES: tuple[str, ...] = (
 )
 
 
-def abort(message: str) -> NoReturn:
-    print(message, file=sys.stderr)
-    raise SystemExit(1)
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Reset the development database and seed realistic demo data.",
-    )
-    parser.add_argument(
-        "--force-reset",
-        action="store_true",
-        help="Required. Confirms that the current development database should be cleared before seeding.",
-    )
-    return parser.parse_args()
-
-
 def database_has_application_data(db: Session) -> bool:
     return (
         db.scalar(select(User.id).limit(1)) is not None
@@ -523,405 +182,313 @@ def database_has_application_data(db: Session) -> bool:
 def reset_application_data(db: Session) -> None:
     bind = db.get_bind()
     if bind.dialect.name == "postgresql":
-        joined_tables = ", ".join(RESET_TABLES)
-        db.execute(text(f"TRUNCATE TABLE {joined_tables} RESTART IDENTITY CASCADE"))
+        db.execute(text(f"TRUNCATE TABLE {', '.join(RESET_TABLES)} RESTART IDENTITY CASCADE"))
     else:
-        table_lookup = {table.name: table for table in Base.metadata.sorted_tables}
-        for table_name in RESET_TABLES:
-            table = table_lookup.get(table_name)
-            if table is not None:
-                db.execute(table.delete())
+        tables = {table.name: table for table in Base.metadata.sorted_tables}
+        for name in RESET_TABLES:
+            if name in tables:
+                db.execute(tables[name].delete())
     db.commit()
 
 
-def build_reference_now() -> datetime:
-    now = datetime.now(UTC)
-    return now.replace(second=0, microsecond=0)
+def _hours(value: str) -> float | None:
+    return float(value) if value else None
 
 
-def stamp(reference_now: datetime, *, days_ago: int, hour: int, minute: int) -> datetime:
-    base = reference_now - timedelta(days=days_ago)
-    return base.replace(hour=hour, minute=minute)
+def _parse_created(value: str) -> datetime:
+    return datetime.fromisoformat(value).replace(tzinfo=UTC)
 
 
-def duration(hours: float | None) -> timedelta | None:
-    if hours is None:
-        return None
-    return timedelta(minutes=int(hours * 60))
+class DatasetSeeder:
+    def __init__(self, db: Session, *, limit: int | None = None, seed: int = 7) -> None:
+        self.db = db
+        self.rng = random.Random(seed)
+        self.limit = limit
+        self.password_hash = get_password_hash(DEMO_PASSWORD)
+        self.now = datetime.now(UTC).replace(second=0, microsecond=0)
+        self.users: dict[str, User] = {}
+        self.staff_by_department: dict[str, list[User]] = {}
+        self.departments = {d.code.upper(): d for d in db.scalars(select(Department)).all()}
+        self.policies = {p.department_id: p for p in db.scalars(select(SLAPolicy)).all()}
+        self.stats = {"grievances": 0, "auto_routed": 0, "overrides": 0, "breaches": 0}
 
-
-def latest_timestamp(*values: datetime | None) -> datetime:
-    defined_values = [value for value in values if value is not None]
-    if not defined_values:
-        raise ValueError("At least one timestamp is required")
-    return max(defined_values)
-
-
-def create_demo_users(db: Session, reference_now: datetime) -> dict[str, User]:
-    roles = {role.name: role for role in db.scalars(select(Role)).all()}
-    users: dict[str, User] = {}
-
-    for spec in DEMO_USERS:
-        created_at = stamp(reference_now, days_ago=spec.created_days_ago, hour=9, minute=0)
+    # ------------------------------------------------------------------ users
+    def _new_user(self, *, email, first_name, last_name, matric, phone, faculty, department,
+                  level, role: Role, created_at: datetime) -> User:
         user = User(
-            email=spec.email.lower(),
-            hashed_password=get_password_hash(spec.password),
-            first_name=spec.first_name,
-            last_name=spec.last_name,
-            matric_number=spec.matric_number,
-            phone_number=spec.phone_number,
-            faculty=spec.faculty,
-            department=spec.department,
-            level=spec.level,
-            is_active=True,
-            created_at=created_at,
-            updated_at=created_at,
+            id=uuid.uuid4(), email=email.lower(), hashed_password=self.password_hash,
+            first_name=first_name, last_name=last_name, matric_number=matric, phone_number=phone,
+            faculty=faculty, department=department, level=level, is_active=True,
+            created_at=created_at, updated_at=created_at,
         )
-        user.roles = [roles[spec.role_name]]
-        db.add(user)
-        users[spec.key] = user
+        user.roles = [role]
+        self.db.add(user)
+        return user
 
-    db.flush()
-    return users
+    def create_users(self, first_activity: datetime) -> None:
+        roles = {role.name: role for role in self.db.scalars(select(Role)).all()}
+        joined = first_activity - timedelta(days=30)
 
-
-def department_lookup(db: Session) -> dict[str, Department]:
-    return {department.code.upper(): department for department in db.scalars(select(Department)).all()}
-
-
-def policy_lookup(db: Session) -> dict[int, SLAPolicy]:
-    return {policy.department_id: policy for policy in db.scalars(select(SLAPolicy)).all()}
-
-
-def add_sla_events(
-    db: Session,
-    *,
-    grievance: Grievance,
-    department: Department,
-    policy: SLAPolicy,
-    route_at: datetime,
-    first_response_at: datetime | None,
-    resolved_at: datetime | None,
-    reference_now: datetime,
-    escalate_first_response: bool,
-    escalate_resolution: bool,
-) -> None:
-    first_response_due_at = route_at + timedelta(minutes=policy.first_response_minutes)
-    resolution_due_at = route_at + timedelta(minutes=policy.resolution_minutes)
-
-    if first_response_at is not None:
-        first_response_status = SLA_STATUS_MET
-        first_response_occurred_at = first_response_at
-        first_response_details: dict[str, object] = {
-            "policy_first_response_minutes": policy.first_response_minutes,
-            "source": "demo_seed",
-        }
-        if first_response_at > first_response_due_at:
-            first_response_details["met_after_breach"] = True
-            first_response_details["resolved_breach_minutes"] = max(
-                0,
-                int((first_response_at - first_response_due_at).total_seconds() // 60),
+        for spec in DEMO_USERS:
+            self.users[spec.key] = self._new_user(
+                email=spec.email, first_name=spec.first_name, last_name=spec.last_name,
+                matric=spec.matric_number, phone=spec.phone_number, faculty=spec.faculty,
+                department=spec.department, level=spec.level, role=roles[spec.role_name],
+                created_at=joined,
             )
-    elif first_response_due_at < reference_now:
-        first_response_status = SLA_STATUS_BREACHED
-        first_response_occurred_at = reference_now
-        first_response_details = {
-            "policy_first_response_minutes": policy.first_response_minutes,
-            "breach_minutes": max(
-                0,
-                int((reference_now - first_response_due_at).total_seconds() // 60),
-            ),
-        }
-    else:
-        first_response_status = SLA_STATUS_PENDING
-        first_response_occurred_at = None
-        first_response_details = {
-            "policy_first_response_minutes": policy.first_response_minutes,
-        }
 
-    if resolved_at is not None:
-        resolution_status = SLA_STATUS_MET
-        resolution_occurred_at = resolved_at
-        resolution_details: dict[str, object] = {
-            "policy_resolution_minutes": policy.resolution_minutes,
-            "source": "demo_seed",
+        staff_index = 2
+        for department_name, people in EXTRA_STAFF.items():
+            for first, last in people:
+                staff_index += 1
+                slug = f"{first.split()[-1]}.{last}".lower()
+                self.users[f"staff_{staff_index}"] = self._new_user(
+                    email=f"{slug}@campuspulse.edu.ng", first_name=first, last_name=last,
+                    matric=f"STF/OPS/{staff_index:04d}", phone=f"0803{staff_index:07d}",
+                    faculty="Administration", department=department_name, level="N/A",
+                    role=roles[ROLE_STAFF], created_at=joined,
+                )
+
+        for user in self.users.values():
+            if roles[ROLE_STAFF] in user.roles:
+                self.staff_by_department.setdefault(user.department, []).append(user)
+
+        used_matric = {spec.matric_number for spec in DEMO_USERS}
+        with STUDENTS_CSV.open(encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                ref = row["student_ref"]
+                if ref in self.users:
+                    continue  # demo account takes this student's place
+                matric = row["matric"]
+                while matric in used_matric:
+                    matric = f"{matric}{self.rng.randint(0, 9)}"
+                used_matric.add(matric)
+                self.users[ref] = self._new_user(
+                    email=f"{row['first_name']}.{row['last_name']}.{ref[1:]}@students.campuspulse.edu.ng",
+                    first_name=row["first_name"], last_name=row["last_name"], matric=matric,
+                    phone=f"080{self.rng.randint(10000000, 99999999)}", faculty=row["faculty"],
+                    department=row["department"], level=row["level"], role=roles[ROLE_STUDENT],
+                    created_at=joined,
+                )
+        self.db.flush()
+
+    # ------------------------------------------------------------------ helpers
+    def _staff_for(self, department: Department) -> User | None:
+        pool = self.staff_by_department.get(department.name)
+        return self.rng.choice(pool) if pool else None
+
+    def _audit(self, action: str, user: User | None, at: datetime, details: dict) -> None:
+        self.db.add(AuditLog(id=uuid.uuid4(), user_id=user.id if user else None, action=action,
+                             details=details, created_at=at))
+
+    def _history(self, grievance: Grievance, by: User | None, from_status, to_status, note, at) -> None:
+        self.db.add(GrievanceStatusHistory(
+            id=uuid.uuid4(), grievance_id=grievance.id, changed_by_user_id=by.id if by else None,
+            from_status=from_status, to_status=to_status, note=note, created_at=at,
+        ))
+
+    def _sla_events(self, grievance: Grievance, department: Department, route_at: datetime,
+                    first_response_at: datetime | None, resolved_at: datetime | None) -> None:
+        policy = self.policies[department.id]
+        due = {
+            SLA_EVENT_FIRST_RESPONSE_DEADLINE: (
+                route_at + timedelta(minutes=policy.first_response_minutes), first_response_at,
+                "policy_first_response_minutes", policy.first_response_minutes, "first_response", ROLE_STAFF, "warning"),
+            SLA_EVENT_RESOLUTION_DEADLINE: (
+                route_at + timedelta(minutes=policy.resolution_minutes), resolved_at,
+                "policy_resolution_minutes", policy.resolution_minutes, "resolution", ROLE_ADMIN, "critical"),
         }
-        if resolved_at > resolution_due_at:
-            resolution_details["met_after_breach"] = True
-            resolution_details["resolved_breach_minutes"] = max(
-                0,
-                int((resolved_at - resolution_due_at).total_seconds() // 60),
+        for event_type, (due_at, done_at, policy_key, minutes, breach_type, target, severity) in due.items():
+            details: dict[str, object] = {policy_key: minutes, "source": "dataset_seed"}
+            if done_at is not None:
+                status, occurred = SLA_STATUS_MET, done_at
+                if done_at > due_at:
+                    details["met_after_breach"] = True
+                    details["resolved_breach_minutes"] = int((done_at - due_at).total_seconds() // 60)
+            elif due_at < self.now:
+                status, occurred = SLA_STATUS_BREACHED, self.now
+                details["breach_minutes"] = int((self.now - due_at).total_seconds() // 60)
+                self.stats["breaches"] += 1
+            else:
+                status, occurred = SLA_STATUS_PENDING, None
+
+            event = SLAEvent(
+                id=uuid.uuid4(), grievance_id=grievance.id, department_id=department.id,
+                policy_id=policy.id, event_type=event_type, status=status, due_at=due_at,
+                occurred_at=occurred, details=details, created_at=route_at,
             )
-    elif resolution_due_at < reference_now:
-        resolution_status = SLA_STATUS_BREACHED
-        resolution_occurred_at = reference_now
-        resolution_details = {
-            "policy_resolution_minutes": policy.resolution_minutes,
-            "breach_minutes": max(
-                0,
-                int((reference_now - resolution_due_at).total_seconds() // 60),
-            ),
-        }
-    else:
-        resolution_status = SLA_STATUS_PENDING
-        resolution_occurred_at = None
-        resolution_details = {
-            "policy_resolution_minutes": policy.resolution_minutes,
-        }
+            self.db.add(event)
+            if status == SLA_STATUS_BREACHED and self.rng.random() < 0.7:
+                self.db.add(SLAEvent(
+                    id=uuid.uuid4(), grievance_id=grievance.id, department_id=department.id,
+                    policy_id=policy.id, parent_event_id=event.id, event_type=SLA_EVENT_ESCALATION,
+                    status=SLA_STATUS_TRIGGERED, occurred_at=self.now,
+                    details={"breach_type": breach_type, "severity": severity, "target_role": target,
+                             "threshold_minutes": 0, "breach_minutes": details["breach_minutes"]},
+                    created_at=due_at + timedelta(minutes=5),
+                ))
 
-    first_response_event = SLAEvent(
-        grievance_id=grievance.id,
-        department_id=department.id,
-        policy_id=policy.id,
-        event_type=SLA_EVENT_FIRST_RESPONSE_DEADLINE,
-        status=first_response_status,
-        due_at=first_response_due_at,
-        occurred_at=first_response_occurred_at,
-        details=first_response_details,
-        created_at=route_at,
-    )
-    resolution_event = SLAEvent(
-        grievance_id=grievance.id,
-        department_id=department.id,
-        policy_id=policy.id,
-        event_type=SLA_EVENT_RESOLUTION_DEADLINE,
-        status=resolution_status,
-        due_at=resolution_due_at,
-        occurred_at=resolution_occurred_at,
-        details=resolution_details,
-        created_at=route_at,
-    )
-    db.add(first_response_event)
-    db.add(resolution_event)
-    db.flush()
+    # ------------------------------------------------------------------ grievances
+    def seed_grievance(self, row: dict[str, str], shift: timedelta) -> None:
+        rng = self.rng
+        admin = self.users["admin"]
+        student = self.users[row["student_ref"]]
+        created_at = _parse_created(row["created_at"]) + shift
+        true_category = row["true_category"]
+        student_category = row["student_selected_category"]
 
-    if escalate_first_response and first_response_status == SLA_STATUS_BREACHED:
-        db.add(
-            SLAEvent(
-                grievance_id=grievance.id,
-                department_id=department.id,
-                policy_id=policy.id,
-                parent_event_id=first_response_event.id,
-                event_type=SLA_EVENT_ESCALATION,
-                status=SLA_STATUS_TRIGGERED,
-                occurred_at=first_response_occurred_at or reference_now,
-                details={
-                    "breach_type": "first_response",
-                    "severity": "warning",
-                    "target_role": ROLE_STAFF,
-                    "threshold_minutes": 0,
-                    "breach_minutes": first_response_details.get("breach_minutes", 0),
-                },
-                created_at=latest_timestamp(route_at, first_response_occurred_at, reference_now),
-            )
+        triage = triage_service.analyze(row["title"], row["description"], student_category=student_category)
+        grievance = Grievance(
+            id=uuid.uuid4(), student_id=student.id, title=row["title"], description=row["description"],
+            category=student_category if student_category != "other" else (triage.predicted_category or "other"),
+            is_anonymous=row["is_anonymous"] == "1", status=GRIEVANCE_STATUS_OPEN,
+            created_at=created_at, updated_at=created_at,
         )
+        triage_service.apply_triage(grievance, triage)
+        self.db.add(grievance)
+        self._history(grievance, student, None, GRIEVANCE_STATUS_OPEN, "Grievance submitted", created_at)
+        self._audit("grievance.created", student, created_at, {
+            "grievance_id": str(grievance.id), "category": grievance.category,
+            "predicted_category": triage.predicted_category, "priority": triage.priority,
+        })
+        self.stats["grievances"] += 1
 
-    if escalate_resolution and resolution_status == SLA_STATUS_BREACHED:
-        db.add(
-            SLAEvent(
-                grievance_id=grievance.id,
-                department_id=department.id,
-                policy_id=policy.id,
-                parent_event_id=resolution_event.id,
-                event_type=SLA_EVENT_ESCALATION,
-                status=SLA_STATUS_TRIGGERED,
-                occurred_at=resolution_occurred_at or reference_now,
-                details={
-                    "breach_type": "resolution",
-                    "severity": "critical",
-                    "target_role": ROLE_ADMIN,
-                    "threshold_minutes": 0,
-                    "breach_minutes": resolution_details.get("breach_minutes", 0),
-                },
-                created_at=latest_timestamp(route_at, resolution_occurred_at, reference_now),
-            )
-        )
+        true_department = self.departments[triage_service.CATEGORY_DEPARTMENT_CODES[true_category]]
+        auto_department = triage_service.department_for_category(self.db, triage.predicted_category)
+        auto = triage.should_auto_route and auto_department is not None
 
-
-def seed_case(
-    db: Session,
-    *,
-    spec: DemoCaseSpec,
-    users: dict[str, User],
-    departments: dict[str, Department],
-    policies: dict[int, SLAPolicy],
-    reference_now: datetime,
-) -> None:
-    student = users[spec.student_key]
-    assignee = users.get(spec.assigned_staff_key) if spec.assigned_staff_key else None
-    department = departments.get(spec.routed_department_code.upper()) if spec.routed_department_code else None
-    policy = policies.get(department.id) if department is not None else None
-
-    created_at = stamp(
-        reference_now,
-        days_ago=spec.created_days_ago,
-        hour=spec.created_hour,
-        minute=spec.created_minute,
-    )
-    route_at = created_at + duration(spec.route_after_hours) if department is not None else None
-    first_response_at = (
-        route_at + duration(spec.first_response_after_hours)
-        if route_at is not None and spec.first_response_after_hours is not None
-        else None
-    )
-    resolved_at = (
-        route_at + duration(spec.resolution_after_hours)
-        if route_at is not None and spec.resolution_after_hours is not None
-        else None
-    )
-    closed_at = (
-        resolved_at + duration(spec.close_after_hours)
-        if resolved_at is not None and spec.close_after_hours is not None
-        else None
-    )
-    comment_timestamps = [created_at + duration(comment.hours_after_created) for comment in spec.comments]
-    updated_at = latest_timestamp(
-        created_at,
-        route_at,
-        first_response_at,
-        resolved_at,
-        closed_at,
-        *comment_timestamps,
-    )
-
-    grievance = Grievance(
-        student_id=student.id,
-        title=spec.title,
-        description=spec.description,
-        category=spec.category,
-        is_anonymous=spec.is_anonymous,
-        status=spec.final_status,
-        assigned_to_user_id=assignee.id if assignee is not None else None,
-        department_id=department.id if department is not None else None,
-        resolution_note=spec.resolution_note,
-        first_response_at=first_response_at,
-        resolved_at=resolved_at,
-        created_at=created_at,
-        updated_at=updated_at,
-    )
-    db.add(grievance)
-    db.flush()
-
-    db.add(
-        GrievanceStatusHistory(
-            grievance_id=grievance.id,
-            changed_by_user_id=student.id,
-            from_status=None,
-            to_status=GRIEVANCE_STATUS_OPEN,
-            note="Grievance submitted",
-            created_at=created_at,
-        )
-    )
-
-    if route_at is not None:
-        db.add(
-            GrievanceAssignment(
-                grievance_id=grievance.id,
-                department_id=department.id,
-                assigned_to_user_id=assignee.id if assignee is not None else None,
-                assigned_by_user_id=users["admin"].id,
-                note=spec.assignment_note or f"Routed to {department.name} for triage.",
+        # --- routing ------------------------------------------------------
+        if auto:
+            route_at = created_at + timedelta(minutes=1)
+            grievance.auto_routed = True
+            grievance.category = triage.predicted_category
+            grievance.department_id = auto_department.id
+            self.stats["auto_routed"] += 1
+            self.db.add(GrievanceAssignment(
+                id=uuid.uuid4(), grievance_id=grievance.id, department_id=auto_department.id,
+                note=f"Auto-routed by AI triage: {triage.predicted_category} "
+                     f"({round((triage.confidence or 0) * 100)}% confidence).",
                 created_at=route_at,
-            )
+            ))
+            self._audit("grievance.auto_routed", None, route_at, {
+                "grievance_id": str(grievance.id), "department_id": auto_department.id,
+                "predicted_category": triage.predicted_category, "confidence": triage.confidence,
+            })
+        else:
+            route_at = created_at + timedelta(hours=_hours(row["route_after_hours"]) or 4.0)
+            recent_intake = (self.now - created_at) < timedelta(days=5) and rng.random() < 0.8
+            if route_at > self.now or recent_intake:
+                return  # still in the unrouted intake queue
+
+        final_department = true_department
+        work_start = route_at
+        if auto and auto_department.id != true_department.id:
+            # Staff in the wrong department correct the AI decision.
+            fixer = self._staff_for(auto_department) or admin
+            work_start = route_at + timedelta(hours=rng.uniform(0.5, 6))
+            if work_start > self.now:
+                work_start = None
+            else:
+                self._audit("grievance.category_overridden", fixer, work_start, {
+                    "grievance_id": str(grievance.id), "from_category": grievance.category,
+                    "to_category": true_category, "predicted_category": triage.predicted_category,
+                    "category_confidence": triage.confidence, "auto_routed": True,
+                })
+                self.stats["overrides"] += 1
+        if work_start is None:
+            self._sla_events(grievance, auto_department, route_at, None, None)
+            return
+
+        if work_start != route_at or not auto:
+            router = admin if not auto else (self._staff_for(auto_department) or admin)
+            self.db.add(GrievanceAssignment(
+                id=uuid.uuid4(), grievance_id=grievance.id, department_id=final_department.id,
+                assigned_by_user_id=router.id, note=f"Routed to {final_department.name}.",
+                created_at=work_start,
+            ))
+            self._audit("grievance.routed", router, work_start, {
+                "grievance_id": str(grievance.id), "to_department_id": final_department.id,
+            })
+        grievance.department_id = final_department.id
+        grievance.category = true_category
+
+        # --- lifecycle ----------------------------------------------------
+        first_hours = _hours(row["first_response_after_hours"]) or 2.0
+        resolution_hours = _hours(row["resolution_after_hours"])
+        close_hours = _hours(row["close_after_hours"])
+        first_response_at = work_start + timedelta(hours=first_hours)
+        resolved_at = (
+            work_start + timedelta(hours=max(resolution_hours, first_hours + 0.5))
+            if resolution_hours is not None else None
         )
+        closed_at = resolved_at + timedelta(hours=close_hours) if resolved_at and close_hours else None
+        first_response_at = first_response_at if first_response_at <= self.now else None
+        resolved_at = resolved_at if resolved_at and first_response_at and resolved_at <= self.now else None
+        closed_at = closed_at if closed_at and resolved_at and closed_at <= self.now else None
 
-        if policy is None:
-            raise RuntimeError(f"Missing SLA policy for department {department.code}")
-        add_sla_events(
-            db,
-            grievance=grievance,
-            department=department,
-            policy=policy,
-            route_at=route_at,
-            first_response_at=first_response_at,
-            resolved_at=resolved_at,
-            reference_now=reference_now,
-            escalate_first_response=spec.escalate_first_response,
-            escalate_resolution=spec.escalate_resolution,
-        )
+        assignee = self._staff_for(final_department)
+        if first_response_at is not None:
+            grievance.first_response_at = first_response_at
+            grievance.assigned_to_user_id = assignee.id if assignee else None
+            grievance.status = GRIEVANCE_STATUS_IN_PROGRESS
+            self._history(grievance, assignee or admin, GRIEVANCE_STATUS_OPEN, GRIEVANCE_STATUS_IN_PROGRESS,
+                          "Case acknowledged and work started.", first_response_at)
+            self.db.add(GrievanceComment(
+                id=uuid.uuid4(), grievance_id=grievance.id, user_id=(assignee or admin).id,
+                body=ACK_COMMENTS[true_category], created_at=first_response_at,
+            ))
+        elif rng.random() < 0.3:
+            self.db.add(GrievanceComment(
+                id=uuid.uuid4(), grievance_id=grievance.id, user_id=student.id,
+                body=rng.choice(FOLLOW_UPS), created_at=min(self.now, work_start + timedelta(hours=24)),
+            ))
 
-    if first_response_at is not None:
-        db.add(
-            GrievanceStatusHistory(
-                grievance_id=grievance.id,
-                changed_by_user_id=(assignee or users["admin"]).id,
-                from_status=GRIEVANCE_STATUS_OPEN,
-                to_status=GRIEVANCE_STATUS_IN_PROGRESS,
-                note="Case acknowledged and work started.",
-                created_at=first_response_at,
-            )
-        )
+        if resolved_at is not None:
+            grievance.resolved_at = resolved_at
+            grievance.status = GRIEVANCE_STATUS_RESOLVED
+            grievance.resolution_note = RESOLUTION_NOTES[true_category]
+            self._history(grievance, assignee or admin, GRIEVANCE_STATUS_IN_PROGRESS,
+                          GRIEVANCE_STATUS_RESOLVED, grievance.resolution_note, resolved_at)
+        if closed_at is not None:
+            grievance.status = GRIEVANCE_STATUS_CLOSED
+            self._history(grievance, admin, GRIEVANCE_STATUS_RESOLVED, GRIEVANCE_STATUS_CLOSED,
+                          "Case closed after confirmation from the student.", closed_at)
 
-    if resolved_at is not None:
-        db.add(
-            GrievanceStatusHistory(
-                grievance_id=grievance.id,
-                changed_by_user_id=(assignee or users["admin"]).id,
-                from_status=GRIEVANCE_STATUS_IN_PROGRESS,
-                to_status=GRIEVANCE_STATUS_RESOLVED,
-                note=spec.resolution_note,
-                created_at=resolved_at,
-            )
-        )
+        grievance.updated_at = max(t for t in (created_at, work_start, first_response_at, resolved_at, closed_at) if t)
+        self._sla_events(grievance, final_department, work_start, first_response_at, resolved_at)
 
-    if closed_at is not None:
-        db.add(
-            GrievanceStatusHistory(
-                grievance_id=grievance.id,
-                changed_by_user_id=users["admin"].id,
-                from_status=GRIEVANCE_STATUS_RESOLVED,
-                to_status=GRIEVANCE_STATUS_CLOSED,
-                note="Case closed after confirmation from the student.",
-                created_at=closed_at,
-            )
-        )
+    def run(self) -> None:
+        with GRIEVANCES_CSV.open(encoding="utf-8") as handle:
+            rows = list(csv.DictReader(handle))
+        if self.limit:
+            rows = rows[-self.limit:]
+        first = _parse_created(rows[0]["created_at"])
+        last = _parse_created(rows[-1]["created_at"])
+        shift = (self.now - timedelta(hours=2)) - last
 
-    for comment in spec.comments:
-        comment_author = users[comment.author_key]
-        db.add(
-            GrievanceComment(
-                grievance_id=grievance.id,
-                user_id=comment_author.id,
-                body=comment.body,
-                created_at=created_at + duration(comment.hours_after_created),
-            )
-        )
+        self.create_users(first + shift)
+        for index, row in enumerate(rows, start=1):
+            self.seed_grievance(row, shift)
+            if index % BATCH_SIZE == 0:
+                self.db.commit()
+                print(f"  seeded {index}/{len(rows)} grievances", flush=True)
+        self.db.commit()
 
 
-def seed_demo_dataset(db: Session) -> None:
-    reference_now = build_reference_now()
-    users = create_demo_users(db, reference_now)
-    departments = department_lookup(db)
-    policies = policy_lookup(db)
-
-    for case_spec in DEMO_CASES:
-        seed_case(
-            db,
-            spec=case_spec,
-            users=users,
-            departments=departments,
-            policies=policies,
-            reference_now=reference_now,
-        )
-
-    db.commit()
-
-
-def print_summary() -> None:
-    print("Development demo data seeded successfully.")
+def print_summary(stats: dict[str, int] | None = None) -> None:
+    print("Demo data seeded successfully.")
     print("")
-    print("Demo accounts")
+    print("Demo accounts (password: %s)" % DEMO_PASSWORD)
     print("-------------")
     for spec in DEMO_USERS:
-        role_label = spec.role_name.upper()
-        print(f"{role_label}: {spec.email} / {spec.password}")
-    print("")
-    print(f"Users: {len(DEMO_USERS)}")
-    print(f"Grievances: {len(DEMO_CASES)}")
-    print("Coverage: realistic records across 7, 30, and 90 day reporting windows.")
+        print(f"{spec.role_name.upper()}: {spec.email}")
+    if stats:
+        print("")
+        for key, value in stats.items():
+            print(f"{key}: {value}")
 
 
-def run_demo_seed(*, force_reset: bool) -> None:
+def run_demo_seed(*, force_reset: bool, limit: int | None = None) -> dict[str, int]:
     with SessionLocal() as db:
         try:
             if force_reset:
@@ -935,19 +502,20 @@ def run_demo_seed(*, force_reset: bool) -> None:
             seed_departments(db)
             seed_default_sla_policies(db)
             seed_default_escalation_rules(db)
-            seed_demo_dataset(db)
-        except (RuntimeError, ValueError, SQLAlchemyError) as exc:
+            seeder = DatasetSeeder(db, limit=limit)
+            seeder.run()
+            return seeder.stats
+        except (RuntimeError, ValueError, KeyError, SQLAlchemyError) as exc:
             db.rollback()
-            abort(f"Failed to seed development demo data: {exc}")
+            abort(f"Failed to seed demo data: {exc}")
 
 
 def main() -> None:
     args = parse_args()
     if not args.force_reset:
         abort("Seeder is destructive. Re-run with --force-reset to continue.")
-
-    run_demo_seed(force_reset=True)
-    print_summary()
+    stats = run_demo_seed(force_reset=True, limit=args.limit)
+    print_summary(stats)
 
 
 if __name__ == "__main__":

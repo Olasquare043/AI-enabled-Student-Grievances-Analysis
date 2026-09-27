@@ -34,21 +34,21 @@ class Department(Base):
 
     grievances: Mapped[list["Grievance"]] = relationship(
         back_populates="department",
-        lazy="selectin",
+        lazy="select",
     )
     grievance_assignments: Mapped[list["GrievanceAssignment"]] = relationship(
         back_populates="department",
-        lazy="selectin",
+        lazy="select",
     )
     sla_policies: Mapped[list["SLAPolicy"]] = relationship(
         back_populates="department",
-        lazy="selectin",
+        lazy="select",
     )
     escalation_rules: Mapped[list["EscalationRule"]] = relationship(
         back_populates="department",
-        lazy="selectin",
+        lazy="select",
     )
     sla_events: Mapped[list["SLAEvent"]] = relationship(
         back_populates="department",
-        lazy="selectin",
+        lazy="select",
     )

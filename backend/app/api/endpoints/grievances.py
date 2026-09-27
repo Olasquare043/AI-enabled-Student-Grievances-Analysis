@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.grievance import (
     GrievanceAssignRequest,
+    GrievanceCategoryOverrideRequest,
     GrievanceCommentCreateRequest,
     GrievanceCommentRead,
     GrievanceCreateRequest,
@@ -27,6 +28,7 @@ from app.services.grievance_service import (
     get_grievance_by_id,
     list_grievances,
     list_triage_queue,
+    override_grievance_category,
     update_grievance_status,
 )
 
@@ -195,5 +197,28 @@ def assign_grievance_endpoint(
             else status.HTTP_400_BAD_REQUEST
         )
         raise HTTPException(status_code=status_code, detail=detail) from exc
+
+    return GrievanceRead.model_validate(updated)
+
+
+@router.patch("/{grievance_id}/category", response_model=GrievanceRead)
+def override_grievance_category_endpoint(
+    grievance_id: uuid.UUID,
+    payload: GrievanceCategoryOverrideRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> GrievanceRead:
+    grievance = get_grievance_by_id(db, grievance_id)
+    if grievance is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grievance not found")
+
+    try:
+        updated = override_grievance_category(
+            db, grievance, acting_user=current_user, category=payload.category
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return GrievanceRead.model_validate(updated)

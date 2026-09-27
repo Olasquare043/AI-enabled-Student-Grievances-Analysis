@@ -187,8 +187,12 @@ def test_staff_can_route_grievance_and_operations_queue_shows_sla(client, db_ses
     )
     assert assignments_response.status_code == 200
     assignments = assignments_response.json()
-    assert len(assignments) == 1
-    assert assignments[0]["department_id"] == department_id
+    # A confident submission is auto-routed by AI triage first; the manual
+    # route is then recorded as the latest assignment.
+    expected = 2 if grievance_response.json()["auto_routed"] else 1
+    assert len(assignments) == expected
+    assert assignments[-1]["department_id"] == department_id
+    assert assignments[-1]["assigned_by_user_id"] == admin["id"]
 
     queue_response = client.get(
         "/operations/queue",

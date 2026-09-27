@@ -1,4 +1,4 @@
-﻿import re
+import re
 from collections import Counter
 from datetime import datetime
 from typing import Any
@@ -6,11 +6,12 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ml.runtime import get_triage_engine
 from app.models.grievance import Grievance
-from app.nlp.classifier import TfidfLinearClassifier
+from app.nlp.classifier import CategoryScore, PredictionResult, TfidfLinearClassifier
 from app.nlp.sentiment import SentimentAnalyzer
 from app.nlp.topic_cluster import TopicClusterer
-from app.nlp.urgency import UrgencyAnalyzer
+from app.nlp.urgency import UrgencyAnalyzer, UrgencyResult
 from app.schemas.grievance import ensure_grievance_status
 from app.schemas.nlp import (
     NLPCategoryScore,
@@ -18,10 +19,12 @@ from app.schemas.nlp import (
     NLPGrievanceAnalysisResponse,
     NLPSentimentResult,
     NLPTextAnalysisResponse,
+    NLPTermContribution,
     NLPTopicClusterResponse,
     NLPUrgencyResult,
 )
 from app.services.llm_enrichment_service import LLMEnrichmentService
+from app.services.triage_service import compute_priority
 
 _WORD_PATTERN = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 _DATE_PATTERN = re.compile(
@@ -356,11 +359,40 @@ class NLPService:
         if not cleaned_text:
             raise ValueError("Text cannot be empty")
 
-        classifier = self._fit_classifier(db)
-        category_prediction = classifier.predict(cleaned_text, top_k=3)
+        engine = get_triage_engine()
+        explanation: list[NLPTermContribution] = []
+        topic_id: int | None = None
+        topic_words: list[str] = []
+        if engine.available:
+            prediction = engine.classify(None, cleaned_text)
+            category_prediction = PredictionResult(
+                label=prediction.label,
+                confidence=prediction.confidence,
+                scores=[CategoryScore(label=label, score=score) for label, score in prediction.scores],
+            )
+            explanation = [
+                NLPTermContribution(term=item.term, weight=item.weight) for item in prediction.explanation
+            ]
+            topic = engine.topic(None, cleaned_text)
+            if topic is not None:
+                topic_id, topic_words = topic.topic_id, topic.top_words[:6]
+        else:
+            # Fallback when trained artifacts are absent: fit the baseline
+            # centroid model on stored grievances.
+            category_prediction = self._fit_classifier(db).predict(cleaned_text, top_k=3)
 
         sentiment = self.sentiment.analyze(cleaned_text)
-        urgency = self.urgency.analyze(cleaned_text)
+        lexicon_urgency = self.urgency.analyze(cleaned_text)
+        supervised_urgency = engine.urgency(None, cleaned_text) if engine.available else None
+        urgency = (
+            UrgencyResult(
+                label=supervised_urgency.label,
+                score=supervised_urgency.score,
+                reasons=lexicon_urgency.reasons,
+            )
+            if supervised_urgency is not None
+            else lexicon_urgency
+        )
         entities = self._extract_baseline_entities(cleaned_text)
         summary = self._build_detailed_summary(
             cleaned_text,
@@ -390,6 +422,11 @@ class NLPService:
 
         return NLPTextAnalysisResponse(
             provider=provider_name,
+            model=engine.model_name,
+            explanation=explanation,
+            priority=compute_priority(urgency.label, sentiment.score),
+            topic_id=topic_id,
+            topic_words=topic_words,
             predicted_category=category_prediction.label,
             category_confidence=round(category_prediction.confidence, 4),
             category_suggestions=[

@@ -7,7 +7,12 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.analytics import AnalyticsOverviewResponse, AnalyticsTopicClustersResponse
+from app.schemas.analytics import (
+    AnalyticsModelCardResponse,
+    AnalyticsOverviewResponse,
+    AnalyticsTopicClustersResponse,
+    AnalyticsTopicTrendsResponse,
+)
 from app.services.analytics_service import AnalyticsService
 from app.services.grievance_service import is_staff_or_admin
 
@@ -44,3 +49,22 @@ def analytics_topic_clusters_endpoint(
     _require_staff_or_admin(current_user)
     service = AnalyticsService()
     return service.get_topic_clusters(db, period_days=period_days)
+
+
+@router.get("/topic-trends", response_model=AnalyticsTopicTrendsResponse)
+def analytics_topic_trends_endpoint(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    period_days: Annotated[int, Query(ge=14, le=365)] = 180,
+) -> AnalyticsTopicTrendsResponse:
+    _require_staff_or_admin(current_user)
+    return AnalyticsService().get_topic_trends(db, period_days=period_days)
+
+
+@router.get("/model-card", response_model=AnalyticsModelCardResponse)
+def analytics_model_card_endpoint(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> AnalyticsModelCardResponse:
+    _require_staff_or_admin(current_user)
+    return AnalyticsService().get_model_card(db)

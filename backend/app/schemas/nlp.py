@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -32,13 +32,23 @@ class NLPGrievanceAnalysisRequest(BaseModel):
     include_llm_enrichment: bool = True
 
 
+class NLPTermContribution(BaseModel):
+    term: str
+    weight: float
+
+
 class NLPTextAnalysisResponse(BaseModel):
     provider: str
+    model: str = "centroid-baseline"
     predicted_category: str
     category_confidence: float
     category_suggestions: list[NLPCategoryScore]
+    explanation: list[NLPTermContribution] = Field(default_factory=list)
     sentiment: NLPSentimentResult
     urgency: NLPUrgencyResult
+    priority: str | None = None
+    topic_id: int | None = None
+    topic_words: list[str] = Field(default_factory=list)
     summary: str
     entities: dict[str, Any]
 

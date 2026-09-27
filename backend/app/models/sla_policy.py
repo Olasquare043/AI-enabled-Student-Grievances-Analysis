@@ -42,5 +42,5 @@ class SLAPolicy(Base):
     )
     sla_events: Mapped[list["SLAEvent"]] = relationship(
         back_populates="policy",
-        lazy="selectin",
+        lazy="select",
     )

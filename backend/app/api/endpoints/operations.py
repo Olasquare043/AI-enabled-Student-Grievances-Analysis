@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -328,6 +328,11 @@ def operations_queue_endpoint(
                 resolution_status=resolution_status,
                 escalation_count=escalation_count,
                 has_active_breach=has_active_breach,
+                priority=grievance.priority,
+                urgency_label=grievance.urgency_label,
+                predicted_category=grievance.predicted_category,
+                category_confidence=grievance.category_confidence,
+                auto_routed=grievance.auto_routed,
             )
         )
 

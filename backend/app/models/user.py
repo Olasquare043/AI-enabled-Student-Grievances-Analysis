@@ -53,27 +53,27 @@ class User(Base):
     audit_logs: Mapped[list["AuditLog"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="select",
     )
     submitted_grievances: Mapped[list["Grievance"]] = relationship(
         "Grievance",
         back_populates="student",
         foreign_keys="Grievance.student_id",
-        lazy="selectin",
+        lazy="select",
     )
     assigned_grievances: Mapped[list["Grievance"]] = relationship(
         "Grievance",
         back_populates="assigned_to_user",
         foreign_keys="Grievance.assigned_to_user_id",
-        lazy="selectin",
+        lazy="select",
     )
     grievance_comments: Mapped[list["GrievanceComment"]] = relationship(
         "GrievanceComment",
         back_populates="user",
-        lazy="selectin",
+        lazy="select",
     )
     grievance_status_events: Mapped[list["GrievanceStatusHistory"]] = relationship(
         "GrievanceStatusHistory",
         back_populates="changed_by_user",
-        lazy="selectin",
+        lazy="select",
     )

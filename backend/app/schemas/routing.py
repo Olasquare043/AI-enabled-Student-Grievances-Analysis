@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -64,6 +64,11 @@ class OperationalGrievanceItem(BaseModel):
     resolution_status: str | None = None
     escalation_count: int = 0
     has_active_breach: bool = False
+    priority: str | None = None
+    urgency_label: str | None = None
+    predicted_category: str | None = None
+    category_confidence: float | None = None
+    auto_routed: bool = False
 
 
 class GrievanceCSVImportError(BaseModel):
