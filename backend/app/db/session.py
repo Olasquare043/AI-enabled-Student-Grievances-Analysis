@@ -11,7 +11,16 @@ class Base(DeclarativeBase):
 
 
 settings = get_settings()
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+# Supabase's transaction pooler (port 6543) does not support prepared
+# statements; the session pooler (5432) and local Postgres do.
+_connect_args = {"prepare_threshold": None} if ":6543/" in settings.database_url else {}
+engine = create_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=5,
+    connect_args=_connect_args,
+)
 SessionLocal = sessionmaker(
     bind=engine,
     class_=Session,

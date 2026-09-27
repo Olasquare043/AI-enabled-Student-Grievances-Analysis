@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { getCurrentUser, loginUser } from "@/lib/api";
+import { getCurrentUser, loginUser, warmUpBackend } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,10 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    warmUpBackend();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;

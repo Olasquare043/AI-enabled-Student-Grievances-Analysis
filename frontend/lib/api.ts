@@ -7,7 +7,7 @@ import type {
   UserRead,
 } from "@/lib/types";
 
-export const REQUEST_TIMEOUT_MS = 15000;
+export const REQUEST_TIMEOUT_MS = 25000;
 
 function normalizeApiBaseUrl(apiBaseUrl: string) {
   if (apiBaseUrl.startsWith("/")) {
@@ -33,7 +33,41 @@ export function getApiBaseUrl() {
   return "/api";
 }
 
+// The free hosting tier puts the API to sleep when idle; waking takes up to a
+// minute. Safe requests (reads and login) are retried through that window.
+const RETRYABLE_STATUS = new Set([502, 503, 504]);
+const RETRY_ATTEMPTS = 4;
+const RETRY_DELAY_MS = 5000;
+
+function isRetryable(path: string, options: RequestInit) {
+  const method = (options.method ?? "GET").toUpperCase();
+  return method === "GET" || path === "/auth/login";
+}
+
+class RetryableRequestError extends Error {}
+
 export async function apiRequest<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const attempts = isRetryable(path, options) ? RETRY_ATTEMPTS : 1;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await apiRequestOnce<T>(path, options);
+    } catch (error) {
+      if (!(error instanceof RetryableRequestError) || attempt >= attempts) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+    }
+  }
+}
+
+export function warmUpBackend() {
+  void fetch(`${getApiBaseUrl()}/health`, { cache: "no-store" }).catch(() => undefined);
+}
+
+async function apiRequestOnce<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
@@ -63,11 +97,11 @@ export async function apiRequest<T>(
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error(
-        `Request timed out. Ensure the backend API is reachable at ${apiBaseUrl}.`,
+      throw new RetryableRequestError(
+        `Request timed out. The server may be waking up; please retry in a moment.`,
       );
     }
-    throw new Error(
+    throw new RetryableRequestError(
       `Unable to reach backend API at ${apiBaseUrl}. Ensure the backend service is running and retry.`,
     );
   } finally {
@@ -84,6 +118,9 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const detail = payload?.detail ?? "Request failed";
+    if (RETRYABLE_STATUS.has(response.status)) {
+      throw new RetryableRequestError(detail);
+    }
     throw new Error(detail);
   }
 
