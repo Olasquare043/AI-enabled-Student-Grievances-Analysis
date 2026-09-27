@@ -369,7 +369,7 @@ export default function WorkspaceGrievanceDetailPage() {
                       providerBadge(aiAnalysis.provider),
                     )}
                   >
-                    {aiAnalysis.provider === "groq" ? "LLM enriched" : "Baseline NLP"}
+                    {aiAnalysis.provider === "groq" ? "LLM enriched" : "Model summary"}
                   </span>
                 ) : null}
               </div>
