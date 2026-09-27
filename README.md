@@ -86,53 +86,6 @@ All accounts use the password `password123`.
 | Staff (Registry) | `grace.adebayo@campuspulse.edu.ng` |
 | Staff (ICT Support) | `martins.okafor@campuspulse.edu.ng` |
 
-## Deploy For Free (Supabase + Render + Vercel)
-
-| Part | Service | Free tier notes |
-| --- | --- | --- |
-| Database | Supabase Postgres | 500 MB; pauses after 7 days without activity |
-| Backend API | Render web service | 512 MB RAM; sleeps after 15 min idle (first request then takes ~50 s) |
-| Frontend | Vercel | Proxies `/api/*` to Render, so no CORS setup is needed in the browser |
-
-### 1. Database (Supabase)
-
-1. Create a project at [supabase.com](https://supabase.com) and note the database password.
-2. Open **Connect → Session pooler** and copy the URI, for example
-   `postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`.
-   Use the **session pooler**, because Render cannot reach Supabase's IPv6-only direct host.
-3. Load the schema and the dataset once, from your machine. With Docker:
-
-   ```bash
-   docker compose build backend
-   docker compose run --rm --no-deps --entrypoint python -e DATABASE_URL="<supabase-uri>" backend -m alembic -c alembic.ini upgrade head
-   docker compose run --rm --no-deps --entrypoint python -e DATABASE_URL="<supabase-uri>" backend -m app.scripts.seed_demo_data --force-reset
-   ```
-
-   Or with Python 3.12, from `backend/`: `pip install -r requirements.txt`, set `DATABASE_URL` and `JWT_SECRET`, then
-   run the same two `python -m ...` commands.
-
-### 2. Backend (Render)
-
-1. Push this repository to GitHub.
-2. In Render, choose **New → Blueprint** and select the repository. [render.yaml](render.yaml) defines the service.
-3. When prompted, set:
-   - `DATABASE_URL`: the Supabase session-pooler URI.
-   - `CORS_ORIGINS`: your Vercel URL (you can add it after step 3).
-4. Deploy, then check `https://<service>.onrender.com/health`. It should return `{"status":"ok"}`.
-
-### 3. Frontend (Vercel)
-
-1. In Vercel, choose **Add New → Project**, import the repository, and set **Root Directory** to `frontend`.
-2. Add these environment variables before the first build:
-   - `INTERNAL_API_BASE_URL` = `https://<service>.onrender.com`
-   - `NEXT_PUBLIC_API_BASE_URL` = `/api`
-3. Deploy and open the Vercel URL.
-
-### 4. Keep it awake (optional)
-
-Create a free job at [cron-job.org](https://cron-job.org) that calls `https://<service>.onrender.com/health` every
-10 minutes. This keeps Render warm, and because `/health` queries the database, it also stops Supabase from pausing.
-
 ## Tests
 
 ```bash
@@ -145,4 +98,4 @@ cd frontend && npm run lint && npm run typecheck && npm run build
 - Frontend: Next.js, React, TypeScript, Tailwind CSS
 - Backend: FastAPI, SQLAlchemy, Alembic, PostgreSQL
 - AI/ML: scikit-learn (TF-IDF, Logistic Regression, Linear SVM, Naive Bayes, LDA), with optional Groq LLM summaries
-- Hosting: Docker Compose (local); Supabase, Render and Vercel (cloud)
+- Local runtime: Docker Compose
