@@ -1,0 +1,103 @@
+erDiagram
+  USERS ||--o{ USER_ROLES : has
+  ROLES ||--o{ USER_ROLES : grants
+  USERS ||--o{ GRIEVANCES : submits
+  USERS |o--o{ GRIEVANCES : "assigned to"
+  DEPARTMENTS |o--o{ GRIEVANCES : owns
+  DEPARTMENTS ||--|| SLA_POLICIES : "governed by"
+  DEPARTMENTS |o--o{ ESCALATION_RULES : defines
+  GRIEVANCES ||--o{ GRIEVANCE_ASSIGNMENTS : "routed via"
+  GRIEVANCES ||--o{ GRIEVANCE_STATUS_HISTORY : tracks
+  GRIEVANCES ||--o{ GRIEVANCE_COMMENTS : has
+  GRIEVANCES ||--o{ SLA_EVENTS : generates
+  SLA_POLICIES |o--o{ SLA_EVENTS : sets
+  SLA_EVENTS |o--o{ SLA_EVENTS : escalates
+  USERS |o--o{ AUDIT_LOGS : performs
+  USERS {
+    uuid id PK
+    string email
+    string matric_number
+    string faculty
+    string department
+    string level
+  }
+  ROLES {
+    int id PK
+    string name
+  }
+  USER_ROLES {
+    uuid user_id FK
+    int role_id FK
+  }
+  DEPARTMENTS {
+    int id PK
+    string code
+    string name
+    bool is_active
+  }
+  GRIEVANCES {
+    uuid id PK
+    uuid student_id FK
+    int department_id FK
+    uuid assigned_to_user_id FK
+    string title
+    text description
+    string category
+    string status
+    string predicted_category
+    float category_confidence
+    string urgency_label
+    string sentiment_label
+    string priority
+    int topic_id
+    jsonb ai_explanation
+    bool auto_routed
+    timestamptz created_at
+    timestamptz resolved_at
+  }
+  GRIEVANCE_ASSIGNMENTS {
+    uuid id PK
+    uuid grievance_id FK
+    int department_id FK
+    uuid assigned_by_user_id FK
+    text note
+  }
+  GRIEVANCE_STATUS_HISTORY {
+    uuid id PK
+    uuid grievance_id FK
+    string from_status
+    string to_status
+  }
+  GRIEVANCE_COMMENTS {
+    uuid id PK
+    uuid grievance_id FK
+    uuid user_id FK
+    text body
+  }
+  SLA_POLICIES {
+    int id PK
+    int department_id FK
+    int first_response_minutes
+    int resolution_minutes
+  }
+  ESCALATION_RULES {
+    int id PK
+    int department_id FK
+    string breach_type
+    int threshold_minutes
+  }
+  SLA_EVENTS {
+    uuid id PK
+    uuid grievance_id FK
+    int policy_id FK
+    uuid parent_event_id FK
+    string event_type
+    string status
+    timestamptz due_at
+  }
+  AUDIT_LOGS {
+    uuid id PK
+    uuid user_id FK
+    string action
+    json details
+  }

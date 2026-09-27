@@ -1,0 +1,21 @@
+digraph G {
+  rankdir=LR; nodesep=0.25; ranksep=0.9;
+  node [fontname="Times", fontsize=12];
+  edge [arrowhead=none, color="#555555", fontname="Times", fontsize=9];
+  student [label="Student", shape=box, style="rounded,filled", fillcolor="#ffffff"];
+  staff [label="Staff", shape=box, style="rounded,filled", fillcolor="#ffffff"];
+  admin [label="Administrator", shape=box, style="rounded,filled", fillcolor="#ffffff"];
+  ai [label="AI triage engine\n(system actor)", shape=box, style="rounded,dashed"];
+  subgraph cluster_sys { label="AI-Enabled Student Grievance Framework"; fontname="Times:bold"; style=rounded; color="#2f6f9f";
+    node [shape=ellipse, style=filled, fillcolor="#eef4fa", color="#2f6f9f"];
+    u1 [label="Register / authenticate"]; u2 [label="Submit grievance"]; u3 [label="Track status\nand comment"];
+    u4 [label="Classify, prioritise\nand explain"]; u5 [label="Auto-route to\ndepartment"]; u6 [label="Review intake and\nroute manually"];
+    u7 [label="Correct category\n(override)"]; u8 [label="Update status /\nresolve"]; u9 [label="Monitor SLA and\nescalations"];
+    u10 [label="View analytics, topics\nand early warnings"]; u11 [label="Manage users,\ndepartments, SLAs"]; u12 [label="Import grievances (CSV)"];
+  }
+  student -> u1; student -> u2; student -> u3;
+  staff -> u1; staff -> u6; staff -> u7; staff -> u8; staff -> u9; staff -> u10;
+  admin -> u1; admin -> u6; admin -> u9; admin -> u10; admin -> u11; admin -> u12;
+  u2 -> u4 [arrowhead=vee, style=dashed, label="<<include>>"]; u4 -> u5 [arrowhead=vee, style=dashed, label="<<extend>>\nif confidence >= tau"];
+  ai -> u4; ai -> u5;
+}

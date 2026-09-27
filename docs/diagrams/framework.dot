@@ -1,0 +1,19 @@
+digraph G {
+  rankdir=LR; nodesep=0.35; ranksep=0.45;
+  node [shape=box, style="rounded,filled", fontname="Times", fontsize=12, fillcolor="#eef4fa", color="#2f6f9f"];
+  edge [color="#444444", fontname="Times", fontsize=10];
+  subgraph cluster_s1 { label="Stage 1: Secure ingestion"; fontname="Times:bold"; style="rounded"; color="#9bb8d3";
+    a1 [label="Role-based web portal\n(JWT, RBAC)"]; a2 [label="Grievance text +\nmetadata (optional category)"]; a1 -> a2; }
+  subgraph cluster_s2 { label="Stage 2: AI triage and routing"; fontname="Times:bold"; style="rounded"; color="#9bb8d3";
+    b1 [label="Pre-processing and\nTF-IDF (eq. 3.1-3.3)"]; b2 [label="Category classifier\n(LR, softmax confidence)"]; b3 [label="Urgency model +\nsentiment -> priority P1-P4"];
+    b4 [label="Linear-SHAP\nexplanation"]; b5 [label="Confidence >= tau ?", shape=diamond, fillcolor="#fff5e0", color="#c98a1b"];
+    b6 [label="Auto-route to department\n+ start SLA timers"]; b7 [label="Unrouted intake\n(human review)"];
+    b1 -> b2 -> b5; b1 -> b3; b2 -> b4; b5 -> b6 [label="yes"]; b5 -> b7 [label="no"]; }
+  subgraph cluster_s3 { label="Stage 3: Root-cause analysis"; fontname="Times:bold"; style="rounded"; color="#9bb8d3";
+    c1 [label="LDA topic model\n(k by NPMI coherence)"]; c2 [label="Weekly spike detector\n(mean + 3 sd)"]; c1 -> c2; }
+  subgraph cluster_s4 { label="Stage 4: Intelligence dashboard"; fontname="Times:bold"; style="rounded"; color="#9bb8d3";
+    d1 [label="Operations board\n(priority, SLA, breaches)"]; d2 [label="Analytics: trends, hotspots,\ntopics, early warnings"]; d3 [label="Model card and\noverride monitoring"]; }
+  a2 -> b1; b6 -> d1; b7 -> d1; a2 -> c1 [style=dashed, label="corpus"]; c2 -> d2; b4 -> d3;
+  fb [label="Staff corrections (audited)\n-> retraining data", shape=note, fillcolor="#f3f3f3", color="#777777"];
+  d3 -> fb [style=dashed]; fb -> b2 [style=dashed, constraint=false];
+}
