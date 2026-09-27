@@ -11,3 +11,7 @@ redis==5.0.7
 sqlalchemy==2.0.38
 uvicorn[standard]==0.34.0
 email-validator==2.2.0
+joblib==1.6.0
+numpy==2.5.3
+scikit-learn==1.9.1
+scipy==1.18.1
