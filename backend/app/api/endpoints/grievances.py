@@ -55,6 +55,7 @@ def list_grievances_endpoint(
     status_filter: Annotated[str | None, Query(alias="status", min_length=2)] = None,
     category_filter: Annotated[str | None, Query(alias="category", min_length=2)] = None,
     mine: bool = False,
+    limit: Annotated[int | None, Query(ge=1, le=5000)] = None,
 ) -> list[GrievanceListItem]:
     try:
         grievances = list_grievances(
@@ -63,6 +64,7 @@ def list_grievances_endpoint(
             status=status_filter,
             category=category_filter,
             mine=mine,
+            limit=limit,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

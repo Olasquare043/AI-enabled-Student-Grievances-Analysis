@@ -10,7 +10,8 @@ import { GrievanceForm } from "@/components/grievance/grievance-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
-import { createGrievance, listGrievances } from "@/lib/grievance-api";
+import { createGrievance, listGrievances, OPERATIONAL_LIST_LIMIT } from "@/lib/grievance-api";
+import type { GrievanceCreateRequest } from "@/lib/types";
 import type { GrievanceListItem } from "@/lib/types";
 
 export default function WorkspaceGrievancesPage() {
@@ -29,7 +30,7 @@ export default function WorkspaceGrievancesPage() {
     }
 
     try {
-      const items = await listGrievances(hasOperationalRole ? undefined : { mine: true });
+      const items = await listGrievances(hasOperationalRole ? { limit: OPERATIONAL_LIST_LIMIT } : { mine: true });
 
       setGrievances(items);
     } catch (loadError) {
@@ -50,14 +51,10 @@ export default function WorkspaceGrievancesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser.id, hasOperationalRole]);
 
-  const handleCreateGrievance = async (payload: {
-    title: string;
-    description: string;
-    category: string;
-    is_anonymous?: boolean;
-  }) => {
-    await createGrievance(payload);
+  const handleCreateGrievance = async (payload: GrievanceCreateRequest) => {
+    const created = await createGrievance(payload);
     await loadPage(true);
+    return created;
   };
 
   if (isLoading) {

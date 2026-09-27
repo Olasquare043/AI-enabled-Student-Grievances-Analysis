@@ -188,13 +188,13 @@ def train_classifiers(train_rows, test_rows, seed: int) -> dict[str, object]:
     baseline_cv = cross_val_score(baseline, x_train, y_train, cv=cv, scoring="f1_macro")
     baseline.fit(x_train, y_train)
     baseline_pred = baseline.predict(x_test)
-    results["Centroid (baseline)"] = {
+    results["Centroid (original system)"] = {
         "cv_macro_f1_mean": round(float(baseline_cv.mean()), 4),
         "cv_macro_f1_std": round(float(baseline_cv.std()), 4),
         "best_params": {},
         "test": macro_scores(y_test, baseline_pred),
     }
-    fitted["Centroid (baseline)"] = baseline
+    fitted["Centroid (original system)"] = baseline
 
     no_prior = CentroidBaseline(use_prior=False)
     no_prior_cv = cross_val_score(no_prior, x_train, y_train, cv=cv, scoring="f1_macro")
@@ -207,7 +207,7 @@ def train_classifiers(train_rows, test_rows, seed: int) -> dict[str, object]:
         "test": macro_scores(y_test, no_prior_pred),
     }
 
-    predictions = {"Centroid (baseline)": baseline_pred}
+    predictions = {"Centroid (original system)": baseline_pred}
     for name, (pipeline, grid) in candidates.items():
         search = GridSearchCV(pipeline, grid, cv=cv, scoring="f1_macro", n_jobs=1)
         search.fit(x_train, y_train)

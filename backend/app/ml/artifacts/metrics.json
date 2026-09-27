@@ -34,7 +34,7 @@
       "welfare"
     ],
     "models": {
-      "Centroid (baseline)": {
+      "Centroid (original system)": {
         "cv_macro_f1_mean": 0.047,
         "cv_macro_f1_std": 0.0,
         "best_params": {},

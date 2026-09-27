@@ -318,13 +318,15 @@ class DatasetSeeder:
                 occurred_at=occurred, details=details, created_at=route_at,
             )
             self.db.add(event)
-            if status == SLA_STATUS_BREACHED and self.rng.random() < 0.7:
+            breached = status == SLA_STATUS_BREACHED or details.get("met_after_breach")
+            if breached and self.rng.random() < 0.7:
                 self.db.add(SLAEvent(
                     id=uuid.uuid4(), grievance_id=grievance.id, department_id=department.id,
                     policy_id=policy.id, parent_event_id=event.id, event_type=SLA_EVENT_ESCALATION,
-                    status=SLA_STATUS_TRIGGERED, occurred_at=self.now,
+                    status=SLA_STATUS_TRIGGERED, occurred_at=due_at + timedelta(minutes=5),
                     details={"breach_type": breach_type, "severity": severity, "target_role": target,
-                             "threshold_minutes": 0, "breach_minutes": details["breach_minutes"]},
+                             "threshold_minutes": 0,
+                             "breach_minutes": details.get("breach_minutes", details.get("resolved_breach_minutes", 0))},
                     created_at=due_at + timedelta(minutes=5),
                 ))
 
@@ -376,7 +378,7 @@ class DatasetSeeder:
             })
         else:
             route_at = created_at + timedelta(hours=_hours(row["route_after_hours"]) or 4.0)
-            recent_intake = (self.now - created_at) < timedelta(days=5) and rng.random() < 0.8
+            recent_intake = (self.now - created_at) < timedelta(days=7) and rng.random() < 0.9
             if route_at > self.now or recent_intake:
                 return  # still in the unrouted intake queue
 
@@ -416,6 +418,11 @@ class DatasetSeeder:
         first_hours = _hours(row["first_response_after_hours"]) or 2.0
         resolution_hours = _hours(row["resolution_after_hours"])
         close_hours = _hours(row["close_after_hours"])
+        if resolution_hours is None and (self.now - created_at) > timedelta(days=45):
+            # Stalled cases are eventually escalated and closed, well past SLA.
+            policy_hours = self.policies[final_department.id].resolution_minutes / 60
+            resolution_hours = policy_hours + rng.uniform(48, 480)
+            close_hours = rng.uniform(12, 72)
         first_response_at = work_start + timedelta(hours=first_hours)
         resolved_at = (
             work_start + timedelta(hours=max(resolution_hours, first_hours + 0.5))

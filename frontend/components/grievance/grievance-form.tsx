@@ -7,28 +7,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import type { GrievanceCreateRequest } from "@/lib/types";
+import type { GrievanceCreateRequest, GrievanceRead } from "@/lib/types";
 
 type GrievanceFormProps = {
-  onCreate: (payload: GrievanceCreateRequest) => Promise<void>;
+  onCreate: (payload: GrievanceCreateRequest) => Promise<GrievanceRead | void>;
 };
 
-const categoryOptions = [
-  "ict",
-  "bursary",
-  "registry",
-  "hostel",
-  "security",
-  "academic",
-  "welfare",
-  "other",
+// An empty value lets the AI triage model choose the category.
+const categoryOptions: { value: string; label: string }[] = [
+  { value: "", label: "Not sure – let the system decide" },
+  { value: "academic", label: "Academic (results, lectures, exams)" },
+  { value: "bursary", label: "Bursary (fees, payments, refunds)" },
+  { value: "registry", label: "Registry (records, transcripts, clearance)" },
+  { value: "ict", label: "ICT (portal, network, e-learning)" },
+  { value: "hostel", label: "Hostel (accommodation, facilities)" },
+  { value: "security", label: "Security (safety, theft, harassment)" },
+  { value: "welfare", label: "Welfare (health, counselling, support)" },
 ];
 
 export function GrievanceForm({ onCreate }: GrievanceFormProps) {
   const toast = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("ict");
+  const [category, setCategory] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,7 +39,7 @@ export function GrievanceForm({ onCreate }: GrievanceFormProps) {
     const payload: GrievanceCreateRequest = {
       title: title.trim(),
       description: description.trim(),
-      category,
+      category: category || undefined,
       is_anonymous: isAnonymous,
     };
 
@@ -54,12 +55,17 @@ export function GrievanceForm({ onCreate }: GrievanceFormProps) {
 
     setIsSubmitting(true);
     try {
-      await onCreate(payload);
+      const created = await onCreate(payload);
       setTitle("");
       setDescription("");
-      setCategory("ict");
+      setCategory("");
       setIsAnonymous(false);
-      toast.success("Grievance submitted", "Your grievance has been created successfully.");
+      toast.success(
+        "Grievance submitted",
+        created?.auto_routed && created.department
+          ? `Automatically routed to ${created.department.name}.`
+          : "Your grievance is in the intake queue for review by staff.",
+      );
     } catch (submitError) {
       const detail =
         submitError instanceof Error ? submitError.message : "Failed to submit grievance";
@@ -85,7 +91,7 @@ export function GrievanceForm({ onCreate }: GrievanceFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="grievance-category">Category</Label>
+        <Label htmlFor="grievance-category">Category (optional)</Label>
         <select
           id="grievance-category"
           className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
@@ -93,8 +99,8 @@ export function GrievanceForm({ onCreate }: GrievanceFormProps) {
           onChange={(event) => setCategory(event.target.value)}
         >
           {categoryOptions.map((option) => (
-            <option key={option} value={option}>
-              {option.toUpperCase()}
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>

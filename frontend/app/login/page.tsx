@@ -86,9 +86,9 @@ export default function LoginPage() {
               <div className="rounded-xl border border-border bg-card/70 px-4 py-3">
                 <p className="mb-1 flex items-center gap-2 font-medium text-foreground">
                   <Sparkles className="size-4 text-primary" />
-                  AI-ready workflow
+                  AI triage built in
                 </p>
-                <p>Baseline NLP works now; optional Groq can be enabled later.</p>
+                <p>Every grievance is classified, prioritised and routed with an explanation.</p>
               </div>
             </div>
           </CardContent>

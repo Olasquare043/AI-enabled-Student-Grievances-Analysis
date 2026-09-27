@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import UTC, date, datetime, time, timedelta
 from statistics import median
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.ml.runtime import get_triage_engine
@@ -332,10 +332,16 @@ class AnalyticsService:
         *,
         start_at: datetime,
     ) -> list[SLACompliancePoint]:
+        # A deadline met only after it had passed counts as a breach.
+        late = SLAEvent.details["met_after_breach"].as_string() == "true"
+        effective_status = case(
+            (and_(SLAEvent.status == SLA_STATUS_MET, late), SLA_STATUS_BREACHED),
+            else_=SLAEvent.status,
+        )
         rows = db.execute(
             select(
                 SLAEvent.event_type,
-                SLAEvent.status,
+                effective_status.label("status"),
                 func.count(SLAEvent.id).label("count"),
             )
             .where(
@@ -348,7 +354,7 @@ class AnalyticsService:
                 ),
                 SLAEvent.status.in_([SLA_STATUS_MET, SLA_STATUS_BREACHED]),
             )
-            .group_by(SLAEvent.event_type, SLAEvent.status)
+            .group_by(SLAEvent.event_type, effective_status)
         ).all()
 
         counts: dict[str, dict[str, int]] = {

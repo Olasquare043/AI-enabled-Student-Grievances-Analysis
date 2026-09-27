@@ -322,9 +322,9 @@ export function DashboardOverview({
           />
           {showAiStatus ? (
             <MetricCard
-              title="AI enrichment"
-              value={stats.aiEnrichmentEnabled ? "Enabled" : "Baseline only"}
-              description="Optional summarization support for operational NLP, with deterministic fallback when unavailable."
+              title="LLM case summaries"
+              value={stats.aiEnrichmentEnabled ? "Enabled" : "Off"}
+              description="Optional Groq-generated summaries. Triage, routing and topic models run regardless."
               icon={BrainCircuit}
               tone="ai"
             />

@@ -266,6 +266,7 @@ def list_grievances(
     status: str | None = None,
     category: str | None = None,
     mine: bool = False,
+    limit: int | None = None,
 ) -> list[Grievance]:
     status_filter = ensure_grievance_status(status) if status else None
     category_filter = category.strip().lower() if category else None
@@ -285,6 +286,8 @@ def list_grievances(
         stmt = stmt.where(Grievance.category == category_filter)
 
     stmt = stmt.order_by(Grievance.created_at.desc())
+    if limit is not None:
+        stmt = stmt.limit(limit)
     return list(db.scalars(stmt))
 
 
