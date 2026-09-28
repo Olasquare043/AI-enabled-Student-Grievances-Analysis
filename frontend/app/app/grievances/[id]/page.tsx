@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { useAppShellContext } from "@/components/app-shell";
+import { AiTriagePanel } from "@/components/grievance/ai-triage-panel";
 import { GrievanceComments } from "@/components/grievance/grievance-comments";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -343,6 +344,12 @@ export default function WorkspaceGrievanceDetailPage() {
         </Card>
 
         <div className="space-y-6">
+          <AiTriagePanel
+            grievance={grievance}
+            canOverride={hasOperationalRole}
+            onUpdated={setGrievance}
+          />
+
           <Card className="surface-card overflow-hidden rounded-2xl">
             <CardHeader className="space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -362,7 +369,7 @@ export default function WorkspaceGrievanceDetailPage() {
                       providerBadge(aiAnalysis.provider),
                     )}
                   >
-                    {aiAnalysis.provider === "groq" ? "LLM enriched" : "Baseline NLP"}
+                    {aiAnalysis.provider === "groq" ? "LLM enriched" : "Model summary"}
                   </span>
                 ) : null}
               </div>

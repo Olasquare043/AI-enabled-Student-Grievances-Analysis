@@ -1,0 +1,34 @@
+# Render blueprint for the FastAPI backend (free plan).
+# Database: Supabase Postgres (set DATABASE_URL in the Render dashboard).
+# Frontend: deployed separately on Vercel (see README "Deploy for free").
+services:
+  - type: web
+    name: grievance-analysis-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m alembic -c alembic.ini upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DATABASE_URL
+        sync: false # Supabase session-pooler connection string
+      - key: CORS_ORIGINS
+        sync: false # e.g. https://your-app.vercel.app
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: AUTO_SEED_DEMO_DATA
+        value: "false" # seed once from your machine instead (see README)
+      - key: CACHE_BACKEND
+        value: memory
+      - key: LLM_PROVIDER
+        value: none # set to "groq" and add GROQ_API_KEY for LLM summaries
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: MONITORING_ENABLED
+        value: "true"

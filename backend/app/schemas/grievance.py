@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 from datetime import datetime
 from typing import Literal
 
@@ -29,7 +29,8 @@ class GrievanceDepartmentSummary(BaseModel):
 class GrievanceCreateRequest(BaseModel):
     title: str = Field(min_length=3, max_length=200)
     description: str = Field(min_length=10, max_length=6000)
-    category: str = Field(min_length=2, max_length=64)
+    # Optional: when omitted (or "other") the AI prediction is used.
+    category: str | None = Field(default=None, max_length=64)
     is_anonymous: bool = False
 
 
@@ -49,6 +50,13 @@ class GrievanceListItem(BaseModel):
     student: GrievanceUserSummary
     assigned_to_user: GrievanceUserSummary | None = None
     department: GrievanceDepartmentSummary | None = None
+    predicted_category: str | None = None
+    category_confidence: float | None = None
+    urgency_label: str | None = None
+    urgency_score: float | None = None
+    priority: str | None = None
+    topic_id: int | None = None
+    auto_routed: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -84,6 +92,9 @@ class GrievanceStatusHistoryRead(BaseModel):
 class GrievanceRead(GrievanceListItem):
     description: str
     resolution_note: str | None = None
+    sentiment_label: str | None = None
+    sentiment_score: float | None = None
+    ai_explanation: dict | None = None
     comments: list[GrievanceCommentRead] = Field(default_factory=list)
     status_history: list[GrievanceStatusHistoryRead] = Field(default_factory=list)
 
@@ -91,6 +102,10 @@ class GrievanceRead(GrievanceListItem):
 class GrievanceStatusUpdateRequest(BaseModel):
     status: GrievanceStatus
     resolution_note: str | None = Field(default=None, max_length=6000)
+
+
+class GrievanceCategoryOverrideRequest(BaseModel):
+    category: str = Field(min_length=2, max_length=64)
 
 
 class GrievanceAssignRequest(BaseModel):

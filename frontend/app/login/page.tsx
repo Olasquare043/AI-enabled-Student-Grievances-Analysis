@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { getCurrentUser, loginUser } from "@/lib/api";
+import { getCurrentUser, loginUser, warmUpBackend } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,10 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    warmUpBackend();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -86,9 +90,9 @@ export default function LoginPage() {
               <div className="rounded-xl border border-border bg-card/70 px-4 py-3">
                 <p className="mb-1 flex items-center gap-2 font-medium text-foreground">
                   <Sparkles className="size-4 text-primary" />
-                  AI-ready workflow
+                  AI triage built in
                 </p>
-                <p>Baseline NLP works now; optional Groq can be enabled later.</p>
+                <p>Every grievance is classified, prioritised and routed with an explanation.</p>
               </div>
             </div>
           </CardContent>

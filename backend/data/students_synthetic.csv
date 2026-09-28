@@ -1,0 +1,321 @@
+student_ref,first_name,last_name,faculty,department,level,matric
+S0001,Yusuf,Nwosu,Arts,English,100,ENG/25/4657
+S0002,Chukwudi,Bello,Management Sciences,Economics,100,ECO/25/7912
+S0003,Ifeanyi,Nwosu,Science,Computer Science,100,CSC/25/9279
+S0004,Temitope,Ugwu,Education,Educational Management,400,EDM/22/9928
+S0005,Adaeze,Suleiman,Social Sciences,Mass Communication,400,MAC/22/1106
+S0006,Damilola,Suleiman,Management Sciences,Economics,400,ECO/22/3547
+S0007,Ibrahim,Akinola,Management Sciences,Business Administration,100,BUS/25/2584
+S0008,Blessing,Anyanwu,Engineering,Electrical Engineering,400,EEE/22/1711
+S0009,Emeka,Lawal,Arts,History and International Studies,400,HIS/22/7201
+S0010,Yetunde,Onyeka,Science,Mathematics,300,MTH/23/6925
+S0011,Ngozi,Okafor,Education,Educational Management,500,EDM/21/4733
+S0012,Funmilayo,Akinola,Engineering,Civil Engineering,200,CVE/24/5554
+S0013,Chiamaka,Mohammed,Social Sciences,Sociology,300,SOC/23/6820
+S0014,Ngozi,Nnaji,Management Sciences,Economics,300,ECO/23/3803
+S0015,Amina,Akinola,Education,Educational Management,200,EDM/24/5422
+S0016,Fatima,Garba,Arts,English,500,ENG/21/1916
+S0017,Chioma,Suleiman,Management Sciences,Accounting,300,ACC/23/2084
+S0018,Fatima,Olatunji,Management Sciences,Economics,500,ECO/21/9179
+S0019,Olumide,Suleiman,Social Sciences,Sociology,400,SOC/22/3287
+S0020,Chukwudi,Suleiman,Management Sciences,Economics,400,ECO/22/8019
+S0021,Halima,Eze,Education,Guidance and Counselling,300,GAC/23/9348
+S0022,Emeka,Eze,Social Sciences,Mass Communication,100,MAC/25/3621
+S0023,Ngozi,Akinola,Arts,History and International Studies,400,HIS/22/7252
+S0024,Blessing,Ibrahim,Education,Guidance and Counselling,400,GAC/22/1188
+S0025,Chukwudi,Ojo,Arts,English,500,ENG/21/5371
+S0026,Kemi,Okonkwo,Arts,History and International Studies,100,HIS/25/3591
+S0027,Blessing,Chukwu,Social Sciences,Mass Communication,500,MAC/21/3927
+S0028,Obinna,Garba,Education,Educational Management,500,EDM/21/9317
+S0029,Hauwa,Ojo,Education,Educational Management,200,EDM/24/3646
+S0030,Fatima,Balogun,Education,Educational Management,400,EDM/22/1319
+S0031,Segun,Okafor,Science,Physics,300,PHY/23/4946
+S0032,Ebere,Garba,Education,Educational Management,100,EDM/25/2133
+S0033,Femi,Ibrahim,Education,Educational Management,200,EDM/24/3705
+S0034,Bukola,Olatunji,Engineering,Mechanical Engineering,400,MEE/22/9835
+S0035,Obinna,Akinola,Arts,English,500,ENG/21/7118
+S0036,Emeka,Nwosu,Social Sciences,Sociology,400,SOC/22/4681
+S0037,Adaeze,Ibrahim,Science,Physics,100,PHY/25/4770
+S0038,Ngozi,Ugwu,Education,Educational Management,100,EDM/25/1964
+S0039,Damilola,Bello,Management Sciences,Accounting,100,ACC/25/9423
+S0040,Ebere,Olatunji,Management Sciences,Business Administration,500,BUS/21/9834
+S0041,Gbenga,Balogun,Management Sciences,Economics,400,ECO/22/4981
+S0042,Funmilayo,Ogunleye,Social Sciences,Political Science,200,POL/24/8062
+S0043,Amina,Adebisi,Engineering,Electrical Engineering,400,EEE/22/1887
+S0044,Chioma,Danjuma,Arts,English,100,ENG/25/6559
+S0045,Temitope,Ibrahim,Science,Microbiology,200,MCB/24/8350
+S0046,Yusuf,Usman,Management Sciences,Business Administration,200,BUS/24/5092
+S0047,Funmilayo,Okafor,Science,Biochemistry,400,BCH/22/9856
+S0048,Chiamaka,Okonkwo,Science,Computer Science,200,CSC/24/8956
+S0049,Tunde,Abubakar,Social Sciences,Mass Communication,400,MAC/22/7209
+S0050,Amina,Adeleke,Science,Biochemistry,300,BCH/23/7930
+S0051,Temitope,Adeleke,Arts,History and International Studies,200,HIS/24/4566
+S0052,Chukwudi,Okafor,Science,Mathematics,500,MTH/21/6138
+S0053,Femi,Chukwu,Science,Computer Science,400,CSC/22/9701
+S0054,Ibrahim,Adebisi,Management Sciences,Accounting,400,ACC/22/4044
+S0055,Segun,Akinola,Science,Mathematics,100,MTH/25/2964
+S0056,Bello,Okafor,Education,Educational Management,400,EDM/22/2343
+S0057,Gbenga,Chukwu,Social Sciences,Sociology,400,SOC/22/6183
+S0058,Fatima,Nwosu,Engineering,Civil Engineering,500,CVE/21/5351
+S0059,Obinna,Usman,Social Sciences,Mass Communication,500,MAC/21/6180
+S0060,Yetunde,Oyelaran,Science,Computer Science,400,CSC/22/2638
+S0061,Sadiq,Suleiman,Science,Mathematics,200,MTH/24/3170
+S0062,Hauwa,Adeleke,Engineering,Civil Engineering,200,CVE/24/3584
+S0063,Obinna,Nnaji,Social Sciences,Sociology,500,SOC/21/9666
+S0064,Funmilayo,Onyeka,Science,Mathematics,300,MTH/23/3200
+S0065,Maryam,Eze,Engineering,Civil Engineering,100,CVE/25/5462
+S0066,Damilola,Olatunji,Engineering,Mechanical Engineering,200,MEE/24/5325
+S0067,Tunde,Bello,Education,Guidance and Counselling,300,GAC/23/7939
+S0068,Damilola,Ojo,Engineering,Civil Engineering,100,CVE/25/3143
+S0069,Nnamdi,Ibrahim,Arts,History and International Studies,200,HIS/24/8007
+S0070,Ngozi,Onyeka,Education,Educational Management,100,EDM/25/3442
+S0071,Adaeze,Ibrahim,Education,Educational Management,300,EDM/23/3426
+S0072,Obinna,Mohammed,Social Sciences,Mass Communication,100,MAC/25/1653
+S0073,Segun,Fashola,Engineering,Civil Engineering,500,CVE/21/2684
+S0074,Yetunde,Danjuma,Engineering,Mechanical Engineering,400,MEE/22/3532
+S0075,Abdullahi,Adeyemi,Management Sciences,Accounting,200,ACC/24/3938
+S0076,Segun,Suleiman,Arts,History and International Studies,400,HIS/22/3608
+S0077,Aisha,Adebisi,Arts,English,400,ENG/22/8711
+S0078,Uche,Adeleke,Management Sciences,Accounting,400,ACC/22/4728
+S0079,Temitope,Akinola,Management Sciences,Accounting,500,ACC/21/6378
+S0080,Uche,Aliyu,Engineering,Civil Engineering,300,CVE/23/9346
+S0081,Damilola,Adeyemi,Social Sciences,Sociology,400,SOC/22/2889
+S0082,Blessing,Okafor,Engineering,Civil Engineering,400,CVE/22/2776
+S0083,Fatima,Okonkwo,Education,Guidance and Counselling,300,GAC/23/9379
+S0084,Temitope,Suleiman,Science,Biochemistry,400,BCH/22/1727
+S0085,Tolulope,Lawal,Arts,History and International Studies,100,HIS/25/9821
+S0086,Bukola,Bello,Arts,English,300,ENG/23/6409
+S0087,Emeka,Danjuma,Education,Guidance and Counselling,500,GAC/21/5920
+S0088,Abdullahi,Obi,Education,Guidance and Counselling,500,GAC/21/7592
+S0089,Zainab,Olatunji,Arts,History and International Studies,400,HIS/22/7888
+S0090,Musa,Nnaji,Arts,History and International Studies,500,HIS/21/5930
+S0091,Obinna,Adeleke,Social Sciences,Sociology,100,SOC/25/4443
+S0092,Fatima,Usman,Social Sciences,Sociology,400,SOC/22/8238
+S0093,Sadiq,Balogun,Social Sciences,Sociology,200,SOC/24/3780
+S0094,Sadiq,Fashola,Arts,English,300,ENG/23/6491
+S0095,Obinna,Nwosu,Science,Microbiology,500,MCB/21/4262
+S0096,Segun,Balogun,Management Sciences,Accounting,100,ACC/25/2193
+S0097,Gbenga,Olatunji,Social Sciences,Political Science,500,POL/21/7291
+S0098,Olumide,Aliyu,Social Sciences,Political Science,200,POL/24/1090
+S0099,Musa,Anyanwu,Science,Biochemistry,200,BCH/24/9486
+S0100,Segun,Lawal,Social Sciences,Mass Communication,400,MAC/22/2988
+S0101,Tolulope,Ibrahim,Social Sciences,Mass Communication,400,MAC/22/6198
+S0102,Sadiq,Okonkwo,Social Sciences,Sociology,500,SOC/21/9976
+S0103,Femi,Usman,Social Sciences,Mass Communication,500,MAC/21/5246
+S0104,Tolulope,Balogun,Management Sciences,Economics,300,ECO/23/4919
+S0105,Kemi,Nwosu,Engineering,Electrical Engineering,100,EEE/25/5451
+S0106,Ibrahim,Eze,Engineering,Electrical Engineering,400,EEE/22/3471
+S0107,Olumide,Ugwu,Management Sciences,Business Administration,500,BUS/21/4505
+S0108,Damilola,Ibrahim,Science,Biochemistry,400,BCH/22/8633
+S0109,Abdullahi,Akinola,Social Sciences,Mass Communication,200,MAC/24/1320
+S0110,Adebayo,Mohammed,Education,Guidance and Counselling,400,GAC/22/5892
+S0111,Chukwudi,Anyanwu,Social Sciences,Political Science,400,POL/22/4613
+S0112,Bukola,Balogun,Social Sciences,Mass Communication,300,MAC/23/1475
+S0113,Chioma,Danjuma,Social Sciences,Political Science,500,POL/21/3704
+S0114,Chukwudi,Adeyemi,Social Sciences,Mass Communication,400,MAC/22/7455
+S0115,Bukola,Eze,Education,Educational Management,100,EDM/25/8564
+S0116,Seun,Obi,Management Sciences,Accounting,300,ACC/23/4467
+S0117,Seun,Suleiman,Social Sciences,Political Science,300,POL/23/7906
+S0118,Chinedu,Danjuma,Engineering,Civil Engineering,400,CVE/22/9837
+S0119,Ngozi,Ojo,Science,Physics,200,PHY/24/1659
+S0120,Chinedu,Nnaji,Science,Microbiology,200,MCB/24/3496
+S0121,Emeka,Oyelaran,Management Sciences,Accounting,400,ACC/22/4571
+S0122,Hauwa,Abubakar,Social Sciences,Sociology,300,SOC/23/2876
+S0123,Adaeze,Adeyemi,Management Sciences,Business Administration,100,BUS/25/6111
+S0124,Temitope,Bello,Education,Guidance and Counselling,400,GAC/22/4978
+S0125,Bello,Anyanwu,Science,Physics,500,PHY/21/2983
+S0126,Chukwudi,Okonkwo,Education,Educational Management,300,EDM/23/7071
+S0127,Damilola,Adeyemi,Science,Mathematics,500,MTH/21/7882
+S0128,Hauwa,Aliyu,Social Sciences,Mass Communication,400,MAC/22/8532
+S0129,Musa,Danjuma,Arts,English,400,ENG/22/9548
+S0130,Chukwudi,Ojo,Arts,History and International Studies,400,HIS/22/8921
+S0131,Adaeze,Suleiman,Social Sciences,Political Science,500,POL/21/6280
+S0132,Nnamdi,Nwosu,Management Sciences,Accounting,300,ACC/23/8613
+S0133,Chinedu,Balogun,Education,Guidance and Counselling,300,GAC/23/6325
+S0134,Uche,Anyanwu,Management Sciences,Business Administration,200,BUS/24/5232
+S0135,Yusuf,Ibrahim,Engineering,Electrical Engineering,400,EEE/22/1166
+S0136,Segun,Danjuma,Education,Educational Management,100,EDM/25/7658
+S0137,Femi,Aliyu,Social Sciences,Sociology,200,SOC/24/9041
+S0138,Kemi,Nwosu,Social Sciences,Mass Communication,100,MAC/25/7625
+S0139,Adaeze,Mohammed,Arts,English,300,ENG/23/8753
+S0140,Maryam,Obi,Education,Guidance and Counselling,400,GAC/22/6764
+S0141,Obinna,Suleiman,Arts,History and International Studies,300,HIS/23/4777
+S0142,Emeka,Danjuma,Science,Microbiology,300,MCB/23/9779
+S0143,Ifeanyi,Danjuma,Arts,English,200,ENG/24/8933
+S0144,Tolulope,Nnaji,Engineering,Mechanical Engineering,400,MEE/22/5636
+S0145,Halima,Mohammed,Science,Microbiology,300,MCB/23/3939
+S0146,Chukwudi,Eze,Engineering,Civil Engineering,500,CVE/21/5494
+S0147,Kemi,Ugwu,Science,Computer Science,400,CSC/22/3068
+S0148,Adebayo,Oyelaran,Arts,History and International Studies,100,HIS/25/5658
+S0149,Damilola,Abubakar,Social Sciences,Political Science,400,POL/22/1841
+S0150,Ngozi,Akinola,Engineering,Electrical Engineering,100,EEE/25/9056
+S0151,Tunde,Eze,Science,Mathematics,500,MTH/21/3444
+S0152,Segun,Ogunleye,Education,Guidance and Counselling,100,GAC/25/7818
+S0153,Seun,Usman,Education,Educational Management,400,EDM/22/8253
+S0154,Obinna,Oyelaran,Engineering,Mechanical Engineering,400,MEE/22/1986
+S0155,Ifeanyi,Suleiman,Education,Educational Management,200,EDM/24/2330
+S0156,Maryam,Bello,Management Sciences,Accounting,200,ACC/24/3564
+S0157,Bello,Balogun,Science,Biochemistry,400,BCH/22/5771
+S0158,Kemi,Ugwu,Science,Microbiology,300,MCB/23/8438
+S0159,Adaeze,Fashola,Science,Microbiology,300,MCB/23/4241
+S0160,Halima,Aliyu,Social Sciences,Mass Communication,400,MAC/22/3441
+S0161,Tunde,Abubakar,Engineering,Civil Engineering,100,CVE/25/6039
+S0162,Emeka,Usman,Education,Guidance and Counselling,400,GAC/22/5982
+S0163,Sadiq,Ibrahim,Arts,History and International Studies,300,HIS/23/9090
+S0164,Aisha,Onyeka,Social Sciences,Mass Communication,400,MAC/22/8078
+S0165,Blessing,Adeyemi,Arts,History and International Studies,400,HIS/22/2496
+S0166,Adaeze,Adeyemi,Management Sciences,Economics,400,ECO/22/5415
+S0167,Femi,Chukwu,Education,Educational Management,200,EDM/24/8245
+S0168,Bukola,Aliyu,Engineering,Civil Engineering,400,CVE/22/9056
+S0169,Abdullahi,Obi,Science,Biochemistry,300,BCH/23/6260
+S0170,Damilola,Okonkwo,Arts,English,200,ENG/24/9117
+S0171,Maryam,Okafor,Engineering,Mechanical Engineering,400,MEE/22/8451
+S0172,Fatima,Ogunleye,Science,Physics,300,PHY/23/7622
+S0173,Chukwudi,Usman,Education,Educational Management,500,EDM/21/7770
+S0174,Hauwa,Nnaji,Science,Microbiology,400,MCB/22/9167
+S0175,Ifeanyi,Suleiman,Arts,History and International Studies,100,HIS/25/9998
+S0176,Ebere,Ogunleye,Management Sciences,Business Administration,400,BUS/22/1472
+S0177,Chiamaka,Adeleke,Arts,English,500,ENG/21/1224
+S0178,Halima,Garba,Education,Guidance and Counselling,100,GAC/25/2858
+S0179,Olumide,Balogun,Social Sciences,Mass Communication,500,MAC/21/5781
+S0180,Femi,Balogun,Education,Guidance and Counselling,400,GAC/22/4993
+S0181,Seun,Olatunji,Social Sciences,Sociology,200,SOC/24/9327
+S0182,Yusuf,Ojo,Arts,English,100,ENG/25/7798
+S0183,Adebayo,Adeleke,Engineering,Mechanical Engineering,300,MEE/23/5891
+S0184,Nnamdi,Ibrahim,Education,Guidance and Counselling,200,GAC/24/8935
+S0185,Chukwudi,Akinola,Engineering,Electrical Engineering,400,EEE/22/8460
+S0186,Segun,Oyelaran,Engineering,Civil Engineering,500,CVE/21/7274
+S0187,Fatima,Danjuma,Management Sciences,Business Administration,100,BUS/25/8749
+S0188,Olumide,Balogun,Arts,History and International Studies,400,HIS/22/1606
+S0189,Damilola,Adebisi,Management Sciences,Economics,400,ECO/22/2644
+S0190,Amina,Adeyemi,Social Sciences,Mass Communication,400,MAC/22/3361
+S0191,Ngozi,Balogun,Social Sciences,Sociology,200,SOC/24/5342
+S0192,Chioma,Aliyu,Engineering,Mechanical Engineering,500,MEE/21/2315
+S0193,Seun,Obi,Engineering,Mechanical Engineering,400,MEE/22/8994
+S0194,Ngozi,Nwosu,Education,Educational Management,400,EDM/22/5708
+S0195,Bukola,Ogunleye,Management Sciences,Economics,100,ECO/25/2646
+S0196,Obinna,Onyeka,Social Sciences,Mass Communication,500,MAC/21/1474
+S0197,Kemi,Mohammed,Science,Physics,100,PHY/25/7141
+S0198,Tolulope,Okonkwo,Social Sciences,Mass Communication,200,MAC/24/3950
+S0199,Yetunde,Adebisi,Management Sciences,Accounting,100,ACC/25/7267
+S0200,Adaeze,Eze,Education,Educational Management,400,EDM/22/4804
+S0201,Amina,Suleiman,Social Sciences,Sociology,300,SOC/23/1153
+S0202,Chukwudi,Abubakar,Social Sciences,Political Science,500,POL/21/2210
+S0203,Obinna,Aliyu,Social Sciences,Political Science,400,POL/22/7951
+S0204,Obinna,Olatunji,Arts,History and International Studies,400,HIS/22/7302
+S0205,Seun,Oyelaran,Social Sciences,Mass Communication,200,MAC/24/6881
+S0206,Kemi,Adeyemi,Education,Guidance and Counselling,500,GAC/21/7484
+S0207,Tunde,Lawal,Engineering,Civil Engineering,400,CVE/22/9138
+S0208,Uche,Nwosu,Engineering,Civil Engineering,400,CVE/22/4115
+S0209,Zainab,Aliyu,Education,Guidance and Counselling,500,GAC/21/2591
+S0210,Nnamdi,Okafor,Arts,English,300,ENG/23/6977
+S0211,Kemi,Obi,Arts,English,100,ENG/25/7807
+S0212,Chukwudi,Onyeka,Management Sciences,Accounting,200,ACC/24/6994
+S0213,Blessing,Lawal,Education,Guidance and Counselling,200,GAC/24/8894
+S0214,Emeka,Usman,Engineering,Mechanical Engineering,300,MEE/23/2233
+S0215,Chioma,Adebisi,Management Sciences,Accounting,500,ACC/21/6992
+S0216,Blessing,Ibrahim,Science,Biochemistry,100,BCH/25/3024
+S0217,Blessing,Oyelaran,Social Sciences,Political Science,500,POL/21/7242
+S0218,Halima,Balogun,Arts,History and International Studies,100,HIS/25/1410
+S0219,Halima,Aliyu,Education,Guidance and Counselling,400,GAC/22/2035
+S0220,Obinna,Aliyu,Arts,History and International Studies,500,HIS/21/7689
+S0221,Aisha,Adeleke,Science,Microbiology,100,MCB/25/9071
+S0222,Chukwudi,Eze,Science,Computer Science,200,CSC/24/7367
+S0223,Chukwudi,Okonkwo,Social Sciences,Political Science,500,POL/21/3531
+S0224,Ebere,Nnaji,Social Sciences,Sociology,100,SOC/25/7686
+S0225,Hauwa,Olatunji,Engineering,Civil Engineering,500,CVE/21/8264
+S0226,Funmilayo,Fashola,Social Sciences,Mass Communication,300,MAC/23/7018
+S0227,Chioma,Suleiman,Education,Guidance and Counselling,100,GAC/25/4109
+S0228,Ifeanyi,Aliyu,Science,Biochemistry,100,BCH/25/1349
+S0229,Zainab,Anyanwu,Science,Physics,200,PHY/24/4362
+S0230,Adaeze,Olatunji,Science,Mathematics,200,MTH/24/4817
+S0231,Adebayo,Suleiman,Engineering,Civil Engineering,400,CVE/22/3370
+S0232,Musa,Ogunleye,Management Sciences,Economics,300,ECO/23/1422
+S0233,Segun,Oyelaran,Management Sciences,Accounting,300,ACC/23/6304
+S0234,Tunde,Eze,Science,Microbiology,300,MCB/23/7897
+S0235,Ngozi,Balogun,Education,Educational Management,500,EDM/21/8344
+S0236,Funmilayo,Usman,Engineering,Mechanical Engineering,400,MEE/22/9254
+S0237,Tolulope,Adeleke,Management Sciences,Economics,100,ECO/25/8504
+S0238,Femi,Adebisi,Arts,English,100,ENG/25/7580
+S0239,Ebere,Ugwu,Social Sciences,Sociology,100,SOC/25/8267
+S0240,Bello,Eze,Science,Computer Science,300,CSC/23/2076
+S0241,Adaeze,Ibrahim,Management Sciences,Business Administration,400,BUS/22/6327
+S0242,Kemi,Usman,Social Sciences,Sociology,400,SOC/22/9282
+S0243,Emeka,Adebisi,Education,Guidance and Counselling,100,GAC/25/4522
+S0244,Abdullahi,Obi,Social Sciences,Political Science,200,POL/24/8430
+S0245,Funmilayo,Obi,Social Sciences,Political Science,500,POL/21/7992
+S0246,Hauwa,Eze,Engineering,Mechanical Engineering,300,MEE/23/8770
+S0247,Ibrahim,Okonkwo,Science,Computer Science,100,CSC/25/2582
+S0248,Maryam,Okafor,Arts,History and International Studies,200,HIS/24/6400
+S0249,Uche,Adebisi,Arts,English,400,ENG/22/7929
+S0250,Bello,Adeleke,Arts,English,300,ENG/23/6761
+S0251,Ifeanyi,Eze,Science,Mathematics,400,MTH/22/8900
+S0252,Maryam,Mohammed,Management Sciences,Accounting,300,ACC/23/2882
+S0253,Bukola,Adebisi,Engineering,Mechanical Engineering,200,MEE/24/1430
+S0254,Musa,Suleiman,Education,Guidance and Counselling,100,GAC/25/6062
+S0255,Musa,Adebisi,Engineering,Electrical Engineering,100,EEE/25/3347
+S0256,Olumide,Danjuma,Education,Guidance and Counselling,100,GAC/25/1502
+S0257,Seun,Okonkwo,Science,Mathematics,200,MTH/24/8432
+S0258,Obinna,Danjuma,Engineering,Civil Engineering,300,CVE/23/6314
+S0259,Olumide,Abubakar,Education,Educational Management,100,EDM/25/1815
+S0260,Nnamdi,Fashola,Arts,English,300,ENG/23/7947
+S0261,Abdullahi,Suleiman,Social Sciences,Sociology,400,SOC/22/4531
+S0262,Bukola,Ogunleye,Education,Educational Management,300,EDM/23/5640
+S0263,Obinna,Okafor,Arts,History and International Studies,400,HIS/22/4612
+S0264,Adebayo,Olatunji,Social Sciences,Sociology,100,SOC/25/5938
+S0265,Kemi,Obi,Management Sciences,Accounting,300,ACC/23/2965
+S0266,Bukola,Abubakar,Science,Biochemistry,500,BCH/21/3116
+S0267,Halima,Chukwu,Social Sciences,Sociology,500,SOC/21/6802
+S0268,Aisha,Okonkwo,Science,Biochemistry,500,BCH/21/1307
+S0269,Gbenga,Okonkwo,Social Sciences,Mass Communication,300,MAC/23/7626
+S0270,Emeka,Akinola,Arts,History and International Studies,300,HIS/23/1341
+S0271,Amina,Garba,Engineering,Civil Engineering,400,CVE/22/6928
+S0272,Segun,Okonkwo,Science,Biochemistry,100,BCH/25/7560
+S0273,Obinna,Danjuma,Education,Educational Management,400,EDM/22/6562
+S0274,Ngozi,Chukwu,Management Sciences,Business Administration,200,BUS/24/2868
+S0275,Uche,Danjuma,Education,Educational Management,300,EDM/23/3419
+S0276,Blessing,Olatunji,Management Sciences,Accounting,200,ACC/24/3842
+S0277,Ngozi,Abubakar,Education,Educational Management,500,EDM/21/9095
+S0278,Nnamdi,Fashola,Social Sciences,Sociology,400,SOC/22/6295
+S0279,Nnamdi,Bello,Arts,History and International Studies,200,HIS/24/8682
+S0280,Yusuf,Oyelaran,Social Sciences,Sociology,300,SOC/23/1920
+S0281,Obinna,Usman,Engineering,Mechanical Engineering,100,MEE/25/8404
+S0282,Kemi,Bello,Science,Computer Science,300,CSC/23/2479
+S0283,Adaeze,Ibrahim,Education,Guidance and Counselling,400,GAC/22/1672
+S0284,Temitope,Obi,Social Sciences,Sociology,500,SOC/21/8792
+S0285,Nnamdi,Ogunleye,Education,Educational Management,100,EDM/25/6626
+S0286,Musa,Okafor,Arts,English,400,ENG/22/5059
+S0287,Tolulope,Chukwu,Arts,History and International Studies,400,HIS/22/3600
+S0288,Seun,Okonkwo,Engineering,Electrical Engineering,300,EEE/23/6543
+S0289,Damilola,Bello,Arts,English,500,ENG/21/6401
+S0290,Seun,Adeleke,Science,Mathematics,500,MTH/21/5128
+S0291,Ibrahim,Oyelaran,Arts,English,300,ENG/23/3317
+S0292,Chioma,Eze,Engineering,Electrical Engineering,500,EEE/21/2388
+S0293,Damilola,Garba,Engineering,Mechanical Engineering,400,MEE/22/3093
+S0294,Bukola,Chukwu,Arts,English,500,ENG/21/6928
+S0295,Musa,Olatunji,Science,Physics,300,PHY/23/6598
+S0296,Zainab,Eze,Social Sciences,Mass Communication,200,MAC/24/2264
+S0297,Chukwudi,Garba,Engineering,Civil Engineering,400,CVE/22/9626
+S0298,Zainab,Nnaji,Science,Physics,400,PHY/22/7172
+S0299,Yetunde,Anyanwu,Management Sciences,Accounting,200,ACC/24/3712
+S0300,Abdullahi,Mohammed,Arts,History and International Studies,100,HIS/25/4891
+S0301,Nnamdi,Nwosu,Social Sciences,Sociology,300,SOC/23/9749
+S0302,Temitope,Mohammed,Management Sciences,Business Administration,400,BUS/22/8218
+S0303,Sadiq,Chukwu,Social Sciences,Political Science,400,POL/22/7859
+S0304,Zainab,Adebisi,Management Sciences,Accounting,400,ACC/22/5096
+S0305,Maryam,Lawal,Science,Biochemistry,300,BCH/23/2680
+S0306,Ibrahim,Ojo,Arts,English,300,ENG/23/3626
+S0307,Olumide,Garba,Engineering,Electrical Engineering,400,EEE/22/8167
+S0308,Uche,Lawal,Science,Microbiology,400,MCB/22/1436
+S0309,Sadiq,Mohammed,Social Sciences,Mass Communication,400,MAC/22/4862
+S0310,Halima,Adeyemi,Social Sciences,Mass Communication,300,MAC/23/6221
+S0311,Zainab,Okafor,Science,Physics,200,PHY/24/5700
+S0312,Femi,Usman,Social Sciences,Sociology,200,SOC/24/1086
+S0313,Ifeanyi,Garba,Science,Computer Science,300,CSC/23/3449
+S0314,Kemi,Nwosu,Education,Guidance and Counselling,100,GAC/25/5934
+S0315,Abdullahi,Aliyu,Science,Computer Science,200,CSC/24/8489
+S0316,Bello,Ibrahim,Science,Computer Science,400,CSC/22/1269
+S0317,Olumide,Adeleke,Arts,English,500,ENG/21/8032
+S0318,Segun,Oyelaran,Science,Mathematics,300,MTH/23/7825
+S0319,Ibrahim,Chukwu,Management Sciences,Economics,500,ECO/21/6908
+S0320,Sadiq,Anyanwu,Science,Mathematics,400,MTH/22/9316

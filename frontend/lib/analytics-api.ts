@@ -1,7 +1,9 @@
 import { apiRequest } from "@/lib/api";
 import type {
+  AnalyticsModelCardResponse,
   AnalyticsOverviewResponse,
   AnalyticsTopicClustersResponse,
+  AnalyticsTopicTrendsResponse,
 } from "@/lib/types";
 
 function buildQuery(params: Record<string, string | number | boolean | undefined>) {
@@ -26,4 +28,15 @@ export async function getAnalyticsTopicClusters(
 ): Promise<AnalyticsTopicClustersResponse> {
   const query = buildQuery({ period_days: periodDays });
   return apiRequest<AnalyticsTopicClustersResponse>(`/analytics/topic-clusters${query}`);
+}
+
+export async function getAnalyticsTopicTrends(
+  periodDays = 180,
+): Promise<AnalyticsTopicTrendsResponse> {
+  const query = buildQuery({ period_days: periodDays });
+  return apiRequest<AnalyticsTopicTrendsResponse>(`/analytics/topic-trends${query}`);
+}
+
+export async function getAnalyticsModelCard(): Promise<AnalyticsModelCardResponse> {
+  return apiRequest<AnalyticsModelCardResponse>("/analytics/model-card");
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useToast } from "@/components/ui/toast";
 import { getAnalyticsOverview, getAnalyticsTopicClusters } from "@/lib/analytics-api";
-import { listGrievances } from "@/lib/grievance-api";
+import { listGrievances, OPERATIONAL_LIST_LIMIT } from "@/lib/grievance-api";
 import { analyzeNlpText, getNlpProviderStatus } from "@/lib/nlp-api";
 import type {
   AnalyticsOverviewResponse,
@@ -156,7 +156,7 @@ export function useWorkspaceData(
 
       try {
         const requestResults = (await Promise.allSettled([
-          listGrievances(hasOperationalRole ? undefined : { mine: true }),
+          listGrievances(hasOperationalRole ? { limit: OPERATIONAL_LIST_LIMIT } : { mine: true }),
           hasOperationalRole ? getNlpProviderStatus() : Promise.resolve(null),
           hasOperationalRole ? getAnalyticsOverview(periodDays) : Promise.resolve(null),
           hasOperationalRole ? getAnalyticsTopicClusters(periodDays) : Promise.resolve(null),

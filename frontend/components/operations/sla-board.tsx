@@ -67,7 +67,8 @@ type QueueSortKey =
   | "category"
   | "department"
   | "created_at"
-  | "breach";
+  | "breach"
+  | "priority";
 type SortState = { key: QueueSortKey; direction: "asc" | "desc" };
 type TableState = {
   search: string;
@@ -179,6 +180,39 @@ function grievanceStatusTone(status: string) {
   return "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950";
 }
 
+const PRIORITY_RANK: Record<string, number> = { P1: 1, P2: 2, P3: 3, P4: 4 };
+const PRIORITY_TONE: Record<string, string> = {
+  P1: "border-red-600 bg-red-600 text-white dark:border-red-500 dark:bg-red-500",
+  P2: "border-orange-500 bg-orange-500 text-white dark:border-orange-400 dark:bg-orange-400 dark:text-slate-950",
+  P3: "border-amber-400 bg-amber-400 text-slate-950",
+  P4: "border-slate-300 bg-slate-100 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+};
+// Category -> owning department code (mirrors backend triage_service).
+const CATEGORY_DEPARTMENT_CODE: Record<string, string> = {
+  academic: "ACADEMIC",
+  bursary: "BURSARY",
+  registry: "REGISTRY",
+  ict: "ICT",
+  hostel: "HOSTEL",
+  security: "SECURITY",
+  welfare: "WELFARE",
+};
+
+function PriorityBadge({ priority }: { priority?: string | null }) {
+  if (!priority) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-[0.1em]",
+        PRIORITY_TONE[priority],
+      )}
+      title="AI priority (P1 = most urgent)"
+    >
+      {priority}
+    </span>
+  );
+}
+
 function categoryTone(category: string) {
   const normalized = category.toLowerCase();
   if (normalized.includes("ict") || normalized.includes("network")) {
@@ -228,6 +262,12 @@ function sortQueueItems(items: OperationalGrievanceItem[], sortState: SortState)
     }
     if (sortState.key === "breach") {
       const result = routeRiskScore(left) - routeRiskScore(right);
+      return sortState.direction === "asc" ? result : -result;
+    }
+    if (sortState.key === "priority") {
+      const result =
+        (PRIORITY_RANK[left.priority ?? ""] ?? 9) - (PRIORITY_RANK[right.priority ?? ""] ?? 9) ||
+        new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
       return sortState.direction === "asc" ? result : -result;
     }
 
@@ -354,7 +394,7 @@ export function SlaBoard({
     Record<number, { firstResponseMinutes: number; resolutionMinutes: number; isActive: boolean }>
   >({});
   const [tableState, setTableState] = useState<Record<QueueSectionKey, TableState>>({
-    unrouted: { search: "", sort: { key: "created_at", direction: "asc" }, page: 1, pageSize: 5 },
+    unrouted: { search: "", sort: { key: "priority", direction: "asc" }, page: 1, pageSize: 5 },
     routed: { search: "", sort: { key: "breach", direction: "desc" }, page: 1, pageSize: 10 },
   });
 
@@ -427,8 +467,11 @@ export function SlaBoard({
   const resolveRouteDraft = (row: OperationalGrievanceItem): RouteDraft => {
     const fromState = routeState[row.id];
     if (fromState) return fromState;
+    const suggested = departments.find(
+      (department) => department.code === CATEGORY_DEPARTMENT_CODE[row.predicted_category ?? ""],
+    );
     return {
-      departmentId: row.department?.id ?? departments[0]?.id ?? 0,
+      departmentId: row.department?.id ?? suggested?.id ?? departments[0]?.id ?? 0,
       assigneeUserId: row.assigned_to_user?.id ?? "",
     };
   };
@@ -601,8 +644,8 @@ export function SlaBoard({
             <thead>
               <tr className="border-b border-border/70 bg-background/45">
                 <SortableHeader
-                  label="Case"
-                  sortKey="title"
+                  label="Case / priority"
+                  sortKey="priority"
                   sortState={sortState}
                   onSort={(key) => handleSort(section, key)}
                   className={section === "unrouted" ? "w-[34%]" : "w-[28%]"}
@@ -656,12 +699,15 @@ export function SlaBoard({
                       <td className="px-3 py-3.5">
                         <div className="space-y-1.5">
                           <div className="flex items-start justify-between gap-2">
-                            <Link
-                              href={`/app/grievances/${item.id}`}
-                              className="text-sm font-semibold leading-5 text-foreground transition hover:text-primary"
-                            >
-                              {item.title}
-                            </Link>
+                            <span className="flex items-start gap-2">
+                              <PriorityBadge priority={item.priority} />
+                              <Link
+                                href={`/app/grievances/${item.id}`}
+                                className="text-sm font-semibold leading-5 text-foreground transition hover:text-primary"
+                              >
+                                {item.title}
+                              </Link>
+                            </span>
                             <Link
                               href={`/app/grievances/${item.id}`}
                               className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary transition hover:text-primary/80"
@@ -708,6 +754,12 @@ export function SlaBoard({
                           ) : (
                             <p className="text-xs leading-5 text-muted-foreground">
                               Awaiting departmental routing.
+                              {item.predicted_category ? (
+                                <span className="block">
+                                  AI suggests <strong>{item.predicted_category}</strong> (
+                                  {Math.round((item.category_confidence ?? 0) * 100)}% – below auto-route threshold)
+                                </span>
+                              ) : null}
                             </p>
                           )}
                         </div>
@@ -896,6 +948,7 @@ export function SlaBoard({
                       <p className="text-sm text-muted-foreground">{item.student.email}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <PriorityBadge priority={item.priority} />
                       <span
                         className={cn(
                           "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",

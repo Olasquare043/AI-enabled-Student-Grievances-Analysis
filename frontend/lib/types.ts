@@ -131,11 +131,40 @@ export type GrievanceListItem = {
   student: GrievanceUserSummary;
   assigned_to_user?: GrievanceUserSummary | null;
   department?: GrievanceDepartmentSummary | null;
+  predicted_category?: string | null;
+  category_confidence?: number | null;
+  urgency_label?: string | null;
+  urgency_score?: number | null;
+  priority?: GrievancePriority | null;
+  topic_id?: number | null;
+  auto_routed?: boolean;
+};
+
+export type GrievancePriority = "P1" | "P2" | "P3" | "P4";
+
+export type TriageTermContribution = {
+  term: string;
+  weight: number;
+};
+
+export type TriageExplanation = {
+  student_category?: string | null;
+  urgency_reasons?: string[];
+  model?: string;
+  threshold?: number;
+  category_scores?: NLPCategoryScore[];
+  top_terms?: TriageTermContribution[];
+  urgency_probabilities?: Record<string, number>;
+  topic_words?: string[];
+  topic_probability?: number;
 };
 
 export type GrievanceRead = GrievanceListItem & {
   description: string;
   resolution_note?: string | null;
+  sentiment_label?: string | null;
+  sentiment_score?: number | null;
+  ai_explanation?: TriageExplanation | null;
   comments: GrievanceCommentRead[];
   status_history: GrievanceStatusHistoryRead[];
 };
@@ -143,8 +172,12 @@ export type GrievanceRead = GrievanceListItem & {
 export type GrievanceCreateRequest = {
   title: string;
   description: string;
-  category: string;
+  category?: string;
   is_anonymous?: boolean;
+};
+
+export type GrievanceCategoryOverrideRequest = {
+  category: string;
 };
 
 export type GrievanceCommentCreateRequest = {
@@ -222,6 +255,11 @@ export type OperationalGrievanceItem = {
   resolution_status?: string | null;
   escalation_count: number;
   has_active_breach: boolean;
+  priority?: GrievancePriority | null;
+  urgency_label?: string | null;
+  predicted_category?: string | null;
+  category_confidence?: number | null;
+  auto_routed?: boolean;
 };
 
 export type SLAPolicyRead = {
@@ -416,9 +454,14 @@ export type NLPTextAnalysisRequest = {
 
 export type NLPTextAnalysisResponse = {
   provider: string;
+  model?: string;
   predicted_category: string;
   category_confidence: number;
   category_suggestions: NLPCategoryScore[];
+  explanation?: TriageTermContribution[];
+  priority?: GrievancePriority | null;
+  topic_id?: number | null;
+  topic_words?: string[];
   sentiment: NLPSentimentResult;
   urgency: NLPUrgencyResult;
   summary: string;
@@ -428,4 +471,89 @@ export type NLPTextAnalysisResponse = {
 export type NLPGrievanceAnalysisResponse = NLPTextAnalysisResponse & {
   grievance_id: string;
   source_category: string;
+};
+
+export type TopicTrendSeries = {
+  topic_id: number;
+  label: string;
+  top_words: string[];
+  count: number;
+  share_percent: number;
+  weekly_counts: number[];
+  alert_weeks: string[];
+};
+
+export type TopicSpikeAlert = {
+  topic_id: number;
+  label: string;
+  week_start: string;
+  count: number;
+  threshold: number;
+};
+
+export type AnalyticsTopicTrendsResponse = {
+  generated_at: string;
+  period_days: number;
+  weeks: string[];
+  topics: TopicTrendSeries[];
+  alerts: TopicSpikeAlert[];
+  method: string;
+};
+
+export type ModelCardEntry = {
+  name: string;
+  cv_macro_f1: number;
+  accuracy: number;
+  macro_precision: number;
+  macro_recall: number;
+  macro_f1: number;
+};
+
+export type ModelCardMetrics = {
+  accuracy?: number;
+  macro_f1?: number;
+  within_one_level?: number;
+};
+
+export type PlantedEventResult = {
+  event: string;
+  event_start: string;
+  planted_documents: number;
+  captured_by_topic: number;
+  topic_capture_rate: number;
+  detected: boolean;
+  detection_delay_days: number | null;
+};
+
+export type AnalyticsModelCardResponse = {
+  available: boolean;
+  model: string;
+  auto_route_threshold?: number | null;
+  trained_on: {
+    documents?: number;
+    train?: number;
+    test?: number;
+  };
+  models: ModelCardEntry[];
+  student_self_selection_accuracy?: number | null;
+  per_class: { label: string; precision: number; recall: number; f1: number; support: number }[];
+  urgency: { lexicon?: ModelCardMetrics; supervised?: ModelCardMetrics };
+  explainability: {
+    k?: number;
+    mean_prob_drop_shap?: number;
+    mean_prob_drop_random?: number;
+    wilcoxon_p_value?: number;
+  };
+  topics: {
+    best_k?: number;
+    events?: PlantedEventResult[];
+  };
+  live: {
+    triaged_grievances: number;
+    auto_routed: number;
+    auto_route_rate_percent: number;
+    category_overrides: number;
+    override_rate_percent: number;
+    agreement_with_student_percent?: number | null;
+  };
 };

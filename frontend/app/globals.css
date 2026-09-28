@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Follow the in-app theme toggle (next-themes sets .dark on <html>), not the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
     --font-manrope: "Aptos", "Segoe UI", "Trebuchet MS", sans-serif;

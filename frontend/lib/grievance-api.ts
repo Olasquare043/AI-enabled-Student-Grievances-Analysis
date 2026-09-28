@@ -1,6 +1,7 @@
 ﻿import { apiRequest } from "@/lib/api";
 import type {
   GrievanceAssignRequest,
+  GrievanceCategoryOverrideRequest,
   GrievanceCommentCreateRequest,
   GrievanceCommentRead,
   GrievanceCreateRequest,
@@ -10,7 +11,11 @@ import type {
   GrievanceStatusUpdateRequest,
 } from "@/lib/types";
 
-function buildQuery(params: Record<string, string | boolean | undefined>) {
+// Staff and admin lists show the most recent cases; older records remain
+// reachable through analytics and filters.
+export const OPERATIONAL_LIST_LIMIT = 500;
+
+function buildQuery(params: Record<string, string | number | boolean | undefined>) {
   const searchParams = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === "") {
@@ -35,11 +40,13 @@ export async function listGrievances(options?: {
   status?: GrievanceStatus;
   category?: string;
   mine?: boolean;
+  limit?: number;
 }): Promise<GrievanceListItem[]> {
   const query = buildQuery({
     status: options?.status,
     category: options?.category,
     mine: options?.mine,
+    limit: options?.limit,
   });
   return apiRequest<GrievanceListItem[]>(`/grievances${query}`);
 }
@@ -91,6 +98,16 @@ export async function assignGrievance(
 ): Promise<GrievanceRead> {
   return apiRequest<GrievanceRead>(`/grievances/${grievanceId}/assign`, {
     method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function overrideGrievanceCategory(
+  grievanceId: string,
+  payload: GrievanceCategoryOverrideRequest,
+): Promise<GrievanceRead> {
+  return apiRequest<GrievanceRead>(`/grievances/${grievanceId}/category`, {
+    method: "PATCH",
     body: JSON.stringify(payload),
   });
 }

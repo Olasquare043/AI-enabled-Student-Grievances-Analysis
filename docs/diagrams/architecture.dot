@@ -1,0 +1,20 @@
+digraph G {
+  rankdir=LR; nodesep=0.4; ranksep=0.6;
+  node [shape=box, style="rounded,filled", fontname="Times", fontsize=12, fillcolor="#eef4fa", color="#2f6f9f"];
+  edge [fontname="Times", fontsize=10, color="#444444"];
+  users [label="Students, Staff, Administrators\n(web browser, desktop or mobile)", fillcolor="#ffffff"];
+  subgraph cluster_fe { label="Presentation tier (web client)"; fontname="Times:bold"; style=rounded; color="#9bb8d3";
+    fe [label="Next.js 16 / React 19 (TypeScript)\nrole-based workspaces\n/api/* reverse proxy"]; }
+  subgraph cluster_be { label="Application tier (FastAPI, Python 3.12)"; fontname="Times:bold"; style=rounded; color="#9bb8d3";
+    mw [label="Middleware\nJWT/RBAC, rate limit, monitoring"];
+    api [label="REST API\nauth, grievances, operations,\nanalytics, NLP"];
+    svc [label="Services\ntriage, routing, SLA/escalation,\nanalytics, audit"];
+    ml [label="ML runtime (scikit-learn)\nclassifier, urgency, LDA\n(joblib artifacts)"];
+    mw -> api -> svc -> ml; }
+  subgraph cluster_db { label="Data tier"; fontname="Times:bold"; style=rounded; color="#9bb8d3";
+    db [label="PostgreSQL\n12 tables (Alembic migrations)", shape=cylinder]; }
+  llm [label="External LLM service\n(optional case summaries)", style="rounded,dashed,filled", fillcolor="#f7f7f7"];
+  offline [label="Offline pipeline (CRISP-DM)\ndataset generator -> training ->\nevaluation -> artifacts + metrics", shape=note, fillcolor="#fff5e0", color="#c98a1b"];
+  users -> fe [label="HTTPS"]; fe -> mw [label="HTTPS / JSON"]; svc -> db [label="SQLAlchemy ORM"]; svc -> llm [style=dashed];
+  offline -> ml [style=dashed, label="deploys"];
+}

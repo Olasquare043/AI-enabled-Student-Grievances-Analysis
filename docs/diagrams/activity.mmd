@@ -1,0 +1,23 @@
+flowchart TD
+  A([Student submits grievance]) --> B[Validate input and store record]
+  B --> C[AI triage: TF-IDF, classifier, urgency, sentiment, topic]
+  C --> D[Save prediction, confidence, priority and explanation]
+  D --> E{Confidence >= threshold?}
+  E -- Yes --> F[Auto-route to predicted department]
+  E -- No --> G[Place in unrouted intake queue]
+  G --> H[Staff reviews AI suggestion and routes]
+  F --> I[Start first-response and resolution SLA timers]
+  H --> I
+  I --> J{Category correct?}
+  J -- No --> K[Staff overrides category and re-routes; audit log]
+  K --> I
+  J -- Yes --> L[Staff acknowledges: status in progress]
+  L --> M{SLA deadline passed?}
+  M -- Yes --> N[Record breach and trigger escalation]
+  N --> O
+  M -- No --> O[Work on case, comment with student]
+  O --> P[Resolve with resolution note]
+  P --> Q[Close after student confirmation]
+  Q --> R[(Grievance corpus)]
+  R --> S[LDA topics and weekly spike detection]
+  S --> T([Dashboards and early-warning alerts])

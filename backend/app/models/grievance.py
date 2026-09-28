@@ -1,9 +1,9 @@
-﻿import uuid
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, false, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
@@ -60,6 +60,19 @@ class Grievance(Base):
         index=True,
     )
     resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # AI triage outputs, written when the grievance is submitted.
+    predicted_category: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    category_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sentiment_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    sentiment_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    urgency_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    urgency_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    priority: Mapped[str | None] = mapped_column(String(4), nullable=True, index=True)
+    topic_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    ai_explanation: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    auto_routed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     first_response_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -95,24 +108,24 @@ class Grievance(Base):
     comments: Mapped[list["GrievanceComment"]] = relationship(
         back_populates="grievance",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="select",
         order_by="GrievanceComment.created_at",
     )
     status_history: Mapped[list["GrievanceStatusHistory"]] = relationship(
         back_populates="grievance",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="select",
         order_by="GrievanceStatusHistory.created_at",
     )
     assignments: Mapped[list["GrievanceAssignment"]] = relationship(
         back_populates="grievance",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="select",
         order_by="GrievanceAssignment.created_at",
     )
     sla_events: Mapped[list["SLAEvent"]] = relationship(
         back_populates="grievance",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="select",
         order_by="SLAEvent.created_at",
     )

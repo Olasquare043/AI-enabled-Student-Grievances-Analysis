@@ -46,6 +46,17 @@ class Settings(BaseSettings):
         alias="CORS_ORIGINS",
     )
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: object) -> object:
+        # Hosted providers (e.g. Supabase) hand out "postgres://" or
+        # "postgresql://" URLs; SQLAlchemy needs the psycopg driver named.
+        if isinstance(value, str):
+            for prefix in ("postgres://", "postgresql://"):
+                if value.startswith(prefix):
+                    return "postgresql+psycopg://" + value[len(prefix):]
+        return value
+
     @field_validator("rate_limit_exempt_paths", mode="before")
     @classmethod
     def parse_rate_limit_exempt_paths(cls, value: object) -> object:

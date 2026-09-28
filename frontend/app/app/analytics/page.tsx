@@ -13,17 +13,30 @@ import {
 
 import { CategoryHotspots } from "@/components/analytics/category-hotspots";
 import { SlaCompliance } from "@/components/analytics/sla-compliance";
+import { ModelCard } from "@/components/analytics/model-card";
 import { TopicClusters } from "@/components/analytics/topic-clusters";
+import { TopicTrends } from "@/components/analytics/topic-trends";
 import { TrendChart } from "@/components/analytics/trend-chart";
 import { useAppShellContext } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
-import { getAnalyticsOverview, getAnalyticsTopicClusters } from "@/lib/analytics-api";
+import {
+  getAnalyticsModelCard,
+  getAnalyticsOverview,
+  getAnalyticsTopicClusters,
+  getAnalyticsTopicTrends,
+} from "@/lib/analytics-api";
 import type {
+  AnalyticsModelCardResponse,
   AnalyticsOverviewResponse,
   AnalyticsTopicClustersResponse,
+  AnalyticsTopicTrendsResponse,
 } from "@/lib/types";
+
+// Topic trends need several weeks of history to detect spikes, so they use a
+// fixed window independent of the period selector.
+const TOPIC_TREND_DAYS = 180;
 
 const PERIOD_OPTIONS = [7, 30, 90];
 
@@ -81,6 +94,8 @@ export default function WorkspaceAnalyticsPage() {
   const [overview, setOverview] = useState<AnalyticsOverviewResponse | null>(null);
   const [topicClusters, setTopicClusters] =
     useState<AnalyticsTopicClustersResponse | null>(null);
+  const [topicTrends, setTopicTrends] = useState<AnalyticsTopicTrendsResponse | null>(null);
+  const [modelCard, setModelCard] = useState<AnalyticsModelCardResponse | null>(null);
   const [periodDays, setPeriodDays] = useState(30);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -110,6 +125,13 @@ export default function WorkspaceAnalyticsPage() {
 
       setOverview(overviewData);
       setTopicClusters(clustersData);
+
+      const [trendsResult, cardResult] = await Promise.allSettled([
+        getAnalyticsTopicTrends(TOPIC_TREND_DAYS),
+        getAnalyticsModelCard(),
+      ]);
+      setTopicTrends(trendsResult.status === "fulfilled" ? trendsResult.value : null);
+      setModelCard(cardResult.status === "fulfilled" ? cardResult.value : null);
     } catch (loadError) {
       const message =
         loadError instanceof Error ? loadError.message : "Unable to load analytics";
@@ -255,6 +277,8 @@ export default function WorkspaceAnalyticsPage() {
           escalationEvents={overview.escalation_events}
           activeBreaches={overview.active_breaches}
         />
+        {topicTrends ? <TopicTrends data={topicTrends} /> : null}
+        {modelCard ? <ModelCard card={modelCard} /> : null}
         <TopicClusters clusters={topicClusters.clusters} />
       </div>
     </div>

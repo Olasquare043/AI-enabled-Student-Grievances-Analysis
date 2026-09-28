@@ -169,7 +169,11 @@ def test_nlp_grievance_analysis_and_topic_clustering(client, db_session):
     assert analyze_response.status_code == 200
     analyzed = analyze_response.json()
     assert analyzed["grievance_id"] == created_ids[0]
-    assert analyzed["source_category"] == "bursary"
+    # The working category may be replaced by a confident AI prediction; the
+    # student's own choice is kept in the triage explanation.
+    detail = client.get(f"/grievances/{created_ids[0]}", headers=auth_headers(admin_token)).json()
+    assert analyzed["source_category"] == detail["category"]
+    assert detail["ai_explanation"]["student_category"] == "bursary"
     assert analyzed["predicted_category"]
 
     cluster_response = client.post(

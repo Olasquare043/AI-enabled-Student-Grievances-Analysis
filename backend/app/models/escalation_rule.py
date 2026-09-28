@@ -43,5 +43,5 @@ class EscalationRule(Base):
     )
     sla_events: Mapped[list["SLAEvent"]] = relationship(
         back_populates="escalation_rule",
-        lazy="selectin",
+        lazy="select",
     )
